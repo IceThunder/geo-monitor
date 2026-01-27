@@ -6,9 +6,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 
-# Create async engine
+def get_async_database_url():
+    """Convert DATABASE_URL to async format for psycopg3."""
+    url = settings.DATABASE_URL
+    # Convert postgresql:// to postgresql+psycopg:// for async
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    elif url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
+    return url
+
+# Create async engine using psycopg3
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    get_async_database_url(),
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,

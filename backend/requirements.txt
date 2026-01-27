@@ -2,9 +2,9 @@
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 
-# 数据库
+# 数据库 (使用psycopg3替代asyncpg)
 sqlalchemy[asyncio]==2.0.25
-asyncpg==0.29.0
+psycopg[binary]==3.1.18
 psycopg2-binary==2.9.9
 
 # Redis
