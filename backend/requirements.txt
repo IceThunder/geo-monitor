@@ -1,0 +1,39 @@
+# FastAPI
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# 数据库
+sqlalchemy[asyncio]==2.0.25
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# Redis
+redis==5.0.1
+
+# 数据验证与设置
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# 认证
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# 异步支持
+aiofiles==23.2.1
+httpx==0.26.0
+
+# 调度
+apscheduler==3.10.4
+
+# 配置
+python-dotenv==1.0.0
+
+# 日志
+structlog==24.1.0
+
+# 测试
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+httpx==0.26.0

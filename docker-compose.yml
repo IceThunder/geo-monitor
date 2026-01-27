@@ -1,0 +1,212 @@
+version: '3.8'
+
+services:
+  # ========================================================================
+  # PostgreSQL Database (for local development)
+  # In production, use Supabase or managed PostgreSQL service
+  # ========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: geo-monitor-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: geo_monitor
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - geo-network
+
+  # ========================================================================
+  # Redis (for local development)
+  # In production, use Upstash Redis
+  # ========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: geo-monitor-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - geo-network
+
+  # ========================================================================
+  # Backend API Service
+  # ========================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: geo-monitor-backend
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/geo_monitor
+      SUPABASE_URL: ${SUPABASE_URL:-https://your-project.supabase.co}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key}
+      
+      # Redis
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-http://redis:6379}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-your-redis-token}
+      
+      # OpenRouter
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-sk-or-v1-xxx}
+      
+      # Application
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      DEBUG: ${DEBUG:-true}
+      ENVIRONMENT: development
+      
+      # JWT
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      
+      # Rate Limiting
+      RATE_LIMIT_REQUESTS_PER_MINUTE: 20
+      RATE_LIMIT_MAX_RETRIES: 3
+      RATE_LIMIT_BASE_DELAY: 1.0
+      
+      # Token & Cost Limits
+      MAX_TOKEN_PER_REQUEST: 4000
+      MAX_COST_PER_REQUEST: 1.00
+      
+      # Logging
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+      
+      # CORS
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - geo-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # ========================================================================
+  # Frontend (Next.js)
+  # ========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: geo-monitor-frontend
+    restart: unless-stopped
+    environment:
+      # API URL (use backend service in production)
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      
+      # Supabase
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-https://your-project.supabase.co}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-your-anon-key}
+      
+      # NextAuth
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-min-32-chars}
+      
+      # App Config
+      NEXT_PUBLIC_APP_NAME: GEO Monitor
+      NEXT_PUBLIC_DEFAULT_PERIOD: 7d
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - geo-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+  # ========================================================================
+  # Worker Service (for background task processing)
+  # ========================================================================
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: geo-monitor-worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/geo_monitor
+      SUPABASE_URL: ${SUPABASE_URL:-https://your-project.supabase.co}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key}
+      
+      # Redis
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-http://redis:6379}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-your-redis-token}
+      
+      # OpenRouter
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-sk-or-v1-xxx}
+      
+      # Application
+      DEBUG: ${DEBUG:-true}
+      ENVIRONMENT: development
+      
+      # JWT
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}
+      
+      # Logging
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - geo-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # ========================================================================
+  # Grafana (Optional - for monitoring)
+  # ========================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: geo-monitor-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - geo-network
+
+networks:
+  geo-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  grafana_data:
