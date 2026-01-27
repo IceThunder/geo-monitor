@@ -1,21 +1,14 @@
-/**
- * Metric Card Component
- */
-'use client';
-
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { LucideIcon } from 'lucide-react';
 
 interface MetricCardProps {
   title: string;
-  value: string | number;
+  value: number | string;
   description?: string;
+  icon?: React.ComponentType<{ className?: string }>;
   trend?: {
     value: number;
     isPositive: boolean;
   };
-  icon: LucideIcon;
   className?: string;
 }
 
@@ -23,32 +16,37 @@ export function MetricCard({
   title,
   value,
   description,
-  trend,
   icon: Icon,
+  trend,
   className,
 }: MetricCardProps) {
   return (
-    <Card className={cn('', className)}>
+    <Card className={cn('relative overflow-hidden', className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+        {Icon && (
+          <Icon className="h-5 w-5 text-muted-foreground" />
+        )}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-3xl font-bold">{value}</div>
         {(description || trend) && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 mt-1">
+            {description && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
             {trend && (
               <span
-                className={cn(
-                  'font-medium',
+                className={`text-xs font-medium ${
                   trend.isPositive ? 'text-green-600' : 'text-red-600'
-                )}
+                }`}
               >
                 {trend.isPositive ? '+' : ''}
                 {trend.value}%
               </span>
             )}
-            {description && <span>{description}</span>}
           </div>
         )}
       </CardContent>
