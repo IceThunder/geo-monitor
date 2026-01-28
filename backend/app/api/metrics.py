@@ -4,7 +4,7 @@ Metrics API routes for data retrieval and analysis.
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 import uuid
@@ -23,12 +23,12 @@ router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
 
 @router.get("/sov")
-async def get_sov_trend(
+def get_sov_trend(
     keyword: str = Query(..., description="关键词"),
     model: Optional[str] = Query(None, description="模型ID"),
     period: str = Query(default="7d", pattern="^(7d|30d|90d)$"),
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Get SOV trend data for a keyword."""
     # Calculate date range
@@ -52,7 +52,7 @@ async def get_sov_trend(
     
     query = query.order_by(MetricsSnapshot.created_at.asc())
     
-    result = await db.execute(query)
+    result = db.execute(query)
     snapshots = result.scalars().all()
     
     # Group by date and calculate daily average
@@ -73,11 +73,11 @@ async def get_sov_trend(
 
 
 @router.get("/accuracy")
-async def get_accuracy_trend(
+def get_accuracy_trend(
     task_id: Optional[uuid.UUID] = Query(None, description="任务ID"),
     period: str = Query(default="30d", pattern="^(7d|30d|90d|365d)$"),
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Get accuracy trend data."""
     days = int(period.replace("d", ""))
@@ -100,7 +100,7 @@ async def get_accuracy_trend(
     
     query = query.order_by(MetricsSnapshot.created_at.asc())
     
-    result = await db.execute(query)
+    result = db.execute(query)
     snapshots = result.scalars().all()
     
     # Group by date
@@ -129,11 +129,11 @@ async def get_accuracy_trend(
 
 
 @router.get("/comparison")
-async def get_model_comparison(
+def get_model_comparison(
     keyword: str = Query(..., description="关键词"),
     period: str = Query(default="7d", pattern="^(7d|30d)$"),
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Get model comparison data for a keyword."""
     days = int(period.replace("d", ""))
@@ -157,7 +157,7 @@ async def get_model_comparison(
         .group_by(MetricsSnapshot.model_id)
     )
     
-    result = await db.execute(query)
+    result = db.execute(query)
     rows = result.all()
     
     models = {}
@@ -172,18 +172,18 @@ async def get_model_comparison(
 
 
 @router.get("/dashboard/overview")
-async def get_dashboard_overview(
+def get_dashboard_overview(
     start_date: str = Query(..., pattern="^\\d{4}-\\d{2}-\\d{2}$"),
     end_date: str = Query(..., pattern="^\\d{4}-\\d{2}-\\d{2}$"),
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Get dashboard overview data."""
     start = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
     
     # Count tasks
-    tasks_result = await db.execute(
+    tasks_result = db.execute(
         select(
             func.count().filter(MonitorTask.is_active == True).label("active"),
             func.count().label("total"),
@@ -194,7 +194,7 @@ async def get_dashboard_overview(
     total_tasks = tasks_counts.total or 0
     
     # Get SOV trend for top keywords
-    sov_result = await db.execute(
+    sov_result = db.execute(
         select(
             MetricsSnapshot.keyword,
             func.avg(MetricsSnapshot.sov_score).label("avg_sov"),
@@ -216,7 +216,7 @@ async def get_dashboard_overview(
     ]
     
     # Get accuracy trend
-    accuracy_result = await db.execute(
+    accuracy_result = db.execute(
         select(
             func.date_trunc("day", MetricsSnapshot.created_at).label("date"),
             func.avg(MetricsSnapshot.accuracy_score).label("avg_accuracy"),
@@ -238,7 +238,7 @@ async def get_dashboard_overview(
     ]
     
     # Get top brands mentioned
-    brands_result = await db.execute(
+    brands_result = db.execute(
         select(
             func.jsonb_array_elements_text(MetricsSnapshot.brands_mentioned).label("brand"),
             func.count().label("count"),
@@ -263,7 +263,7 @@ async def get_dashboard_overview(
     recent_alerts = []
     
     # Get total cost and token usage
-    cost_result = await db.execute(
+    cost_result = db.execute(
         select(
             func.sum(TaskRun.cost_usd).label("total_cost"),
             func.sum(TaskRun.token_usage).label("total_tokens"),

@@ -3,7 +3,7 @@ Alert management API routes.
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, func, update
 from sqlalchemy.orm import selectinload
 import uuid
@@ -24,13 +24,13 @@ router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
 
 @router.get("", response_model=AlertListResponse)
-async def list_alerts(
+def list_alerts(
     is_read: Optional[bool] = Query(None, description="是否已读"),
     alert_type: Optional[str] = Query(None, description="告警类型"),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """List alerts for the current tenant."""
     # Build query
@@ -48,12 +48,12 @@ async def list_alerts(
         .select_from(AlertRecord)
         .where(AlertRecord.tenant_id == tenant_id, AlertRecord.is_read == False)
     )
-    unread_result = await db.execute(unread_query)
+    unread_result = db.execute(unread_query)
     unread_count = unread_result.scalar() or 0
     
     # Get paginated results
     query = query.order_by(AlertRecord.created_at.desc()).offset(offset).limit(limit)
-    result = await db.execute(query)
+    result = db.execute(query)
     alerts = result.scalars().all()
     
     # Get task names for each alert
@@ -61,7 +61,7 @@ async def list_alerts(
     for alert in alerts:
         task_name = None
         if alert.task_id:
-            task_result = await db.execute(
+            task_result = db.execute(
                 select(MonitorTask.name).where(MonitorTask.id == alert.task_id)
             )
             task_name = task_result.scalar_one_or_none()
@@ -85,13 +85,13 @@ async def list_alerts(
 
 
 @router.put("/{alert_id}/read", response_model=MarkAlertReadResponse)
-async def mark_alert_read(
+def mark_alert_read(
     alert_id: uuid.UUID,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Mark an alert as read."""
-    result = await db.execute(
+    result = db.execute(
         select(AlertRecord).where(
             AlertRecord.id == alert_id,
             AlertRecord.tenant_id == tenant_id,
@@ -103,34 +103,34 @@ async def mark_alert_read(
         return MarkAlertReadResponse(success=False)
     
     alert.is_read = True
-    await db.commit()
+    db.commit()
     
     return MarkAlertReadResponse(success=True)
 
 
 @router.put("/read-all", response_model=MarkAlertReadResponse)
-async def mark_all_alerts_read(
+def mark_all_alerts_read(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Mark all alerts as read."""
-    await db.execute(
+    db.execute(
         update(AlertRecord)
         .where(AlertRecord.tenant_id == tenant_id, AlertRecord.is_read == False)
         .values(is_read=True)
     )
-    await db.commit()
+    db.commit()
     
     return MarkAlertReadResponse(success=True)
 
 
 @router.get("/unread-count")
-async def get_unread_count(
+def get_unread_count(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Get the count of unread alerts."""
-    result = await db.execute(
+    result = db.execute(
         select(func.count())
         .select_from(AlertRecord)
         .where(AlertRecord.tenant_id == tenant_id, AlertRecord.is_read == False)

@@ -2,7 +2,7 @@
 Tenant configuration API routes.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select
 import base64
 
@@ -31,12 +31,12 @@ def decode_api_key(encoded_key: str) -> str:
 
 
 @router.get("", response_model=TenantConfigResponse)
-async def get_tenant_config(
+def get_tenant_config(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Get the current tenant's configuration."""
-    result = await db.execute(
+    result = db.execute(
         select(TenantConfig).where(TenantConfig.tenant_id == tenant_id)
     )
     config = result.scalar_one_or_none()
@@ -47,8 +47,8 @@ async def get_tenant_config(
             tenant_id=tenant_id,
         )
         db.add(config)
-        await db.commit()
-        await db.refresh(config)
+        db.commit()
+        db.refresh(config)
     
     return TenantConfigResponse(
         openrouter_api_key_set=config.openrouter_api_key_encrypted is not None,
@@ -59,13 +59,13 @@ async def get_tenant_config(
 
 
 @router.put("", response_model=TenantConfigResponse)
-async def update_tenant_config(
+def update_tenant_config(
     config_update: TenantConfigUpdate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Update the current tenant's configuration."""
-    result = await db.execute(
+    result = db.execute(
         select(TenantConfig).where(TenantConfig.tenant_id == tenant_id)
     )
     config = result.scalar_one_or_none()
@@ -74,7 +74,7 @@ async def update_tenant_config(
         # Create new config
         config = TenantConfig(tenant_id=tenant_id)
         db.add(config)
-        await db.flush()
+        db.flush()
     
     # Update fields
     if config_update.openrouter_api_key is not None:
@@ -89,8 +89,8 @@ async def update_tenant_config(
     if config_update.alert_threshold_sentiment is not None:
         config.alert_threshold_sentiment = config_update.alert_threshold_sentiment
     
-    await db.commit()
-    await db.refresh(config)
+    db.commit()
+    db.refresh(config)
     
     return TenantConfigResponse(
         openrouter_api_key_set=config.openrouter_api_key_encrypted is not None,
@@ -101,12 +101,12 @@ async def update_tenant_config(
 
 
 @router.get("/openrouter-key")
-async def get_openrouter_key(
+def get_openrouter_key(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Get the decoded OpenRouter API key (for internal use only)."""
-    result = await db.execute(
+    result = db.execute(
         select(TenantConfig).where(TenantConfig.tenant_id == tenant_id)
     )
     config = result.scalar_one_or_none()

@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     SUPABASE_DB_PASSWORD: Optional[str] = None
     DATABASE_URL: Optional[str] = None
     
+    # Connection Pool
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 1800
+    
     # Redis
     UPSTASH_REDIS_REST_URL: Optional[str] = None
     UPSTASH_REDIS_REST_TOKEN: Optional[str] = None
@@ -81,6 +87,16 @@ class Settings(BaseSettings):
                 return f"postgresql://postgres:{self.SUPABASE_DB_PASSWORD}@{db_host}:5432/postgres"
         
         return ""
+    
+    def get_pool_config(self) -> dict:
+        """Get connection pool configuration."""
+        return {
+            "pool_size": self.DB_POOL_SIZE,
+            "max_overflow": self.DB_MAX_OVERFLOW,
+            "pool_timeout": self.DB_POOL_TIMEOUT,
+            "pool_recycle": self.DB_POOL_RECYCLE,
+            "pool_pre_ping": True,
+        }
 
 
 @lru_cache()

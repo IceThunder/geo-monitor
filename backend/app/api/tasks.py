@@ -3,7 +3,7 @@ Task management API routes.
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 import uuid
@@ -25,13 +25,13 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
 @router.get("", response_model=TaskListResponse)
-async def list_tasks(
+def list_tasks(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     is_active: Optional[bool] = None,
     search: Optional[str] = None,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """List all monitor tasks for the current tenant."""
     # Build query
@@ -45,27 +45,27 @@ async def list_tasks(
     
     # Get total count
     count_query = select(uuid.func.count()).select_from(query.subquery())
-    total_result = await db.execute(count_query)
+    total_result = db.execute(count_query)
     total = total_result.scalar() or 0
     
     # Get paginated results
     query = query.offset((page - 1) * limit).limit(limit).order_by(MonitorTask.created_at.desc())
-    result = await db.execute(query)
+    result = db.execute(query)
     tasks = result.scalars().all()
     
     # Build response
     data = []
     for task in tasks:
         # Get related models and keywords
-        models_result = await db.execute(
+        models_result = db.execute(
             select(TaskModel.model_id).where(TaskModel.task_id == task.id)
         )
-        keywords_result = await db.execute(
+        keywords_result = db.execute(
             select(TaskKeyword.keyword).where(TaskKeyword.task_id == task.id)
         )
         
         # Get last run info
-        last_run_result = await db.execute(
+        last_run_result = db.execute(
             select(TaskRun)
             .where(TaskRun.task_id == task.id)
             .order_by(TaskRun.created_at.desc())
@@ -93,13 +93,13 @@ async def list_tasks(
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
-async def get_task(
+def get_task(
     task_id: uuid.UUID,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Get a specific task by ID."""
-    result = await db.execute(
+    result = db.execute(
         select(MonitorTask)
         .options(
             selectinload(MonitorTask.models),
@@ -113,7 +113,7 @@ async def get_task(
         raise NotFoundException("Task", str(task_id))
     
     # Get last run info
-    last_run_result = await db.execute(
+    last_run_result = db.execute(
         select(TaskRun)
         .where(TaskRun.task_id == task.id)
         .order_by(TaskRun.created_at.desc())
@@ -139,10 +139,10 @@ async def get_task(
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
-async def create_task(
+def create_task(
     task_data: TaskCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Create a new monitor task."""
     # Create task
@@ -154,7 +154,7 @@ async def create_task(
         prompt_template_id=task_data.prompt_template_id,
     )
     db.add(task)
-    await db.flush()
+    db.flush()
     
     # Add models
     for model_id in task_data.models:
@@ -164,8 +164,8 @@ async def create_task(
     for keyword in task_data.keywords:
         db.add(TaskKeyword(task_id=task.id, keyword=keyword))
     
-    await db.commit()
-    await db.refresh(task)
+    db.commit()
+    db.refresh(task)
     
     return TaskResponse(
         id=task.id,
@@ -183,15 +183,15 @@ async def create_task(
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
-async def update_task(
+def update_task(
     task_id: uuid.UUID,
     task_data: TaskUpdate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Update an existing task."""
     # Get task
-    result = await db.execute(
+    result = db.execute(
         select(MonitorTask)
         .where(MonitorTask.id == task_id, MonitorTask.tenant_id == tenant_id)
     )
@@ -214,7 +214,7 @@ async def update_task(
     
     # Update models if provided
     if task_data.models is not None:
-        await db.execute(
+        db.execute(
             delete(TaskModel).where(TaskModel.task_id == task_id)
         )
         for model_id in task_data.models:
@@ -222,20 +222,20 @@ async def update_task(
     
     # Update keywords if provided
     if task_data.keywords is not None:
-        await db.execute(
+        db.execute(
             delete(TaskKeyword).where(TaskKeyword.task_id == task_id)
         )
         for keyword in task_data.keywords:
             db.add(TaskKeyword(task_id=task.id, keyword=keyword))
     
-    await db.commit()
-    await db.refresh(task)
+    db.commit()
+    db.refresh(task)
     
     # Get updated models and keywords
-    models_result = await db.execute(
+    models_result = db.execute(
         select(TaskModel.model_id).where(TaskModel.task_id == task.id)
     )
-    keywords_result = await db.execute(
+    keywords_result = db.execute(
         select(TaskKeyword.keyword).where(TaskKeyword.task_id == task.id)
     )
     
@@ -255,13 +255,13 @@ async def update_task(
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_task(
+def delete_task(
     task_id: uuid.UUID,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Delete a task and all associated data."""
-    result = await db.execute(
+    result = db.execute(
         select(MonitorTask)
         .where(MonitorTask.id == task_id, MonitorTask.tenant_id == tenant_id)
     )
@@ -270,18 +270,18 @@ async def delete_task(
     if not task:
         raise NotFoundException("Task", str(task_id))
     
-    await db.delete(task)
-    await db.commit()
+    db.delete(task)
+    db.commit()
 
 
 @router.post("/{task_id}/trigger", response_model=TaskTriggerResponse)
-async def trigger_task(
+def trigger_task(
     task_id: uuid.UUID,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Manually trigger a task execution."""
-    result = await db.execute(
+    result = db.execute(
         select(MonitorTask)
         .where(MonitorTask.id == task_id, MonitorTask.tenant_id == tenant_id)
     )
@@ -296,10 +296,11 @@ async def trigger_task(
         status="pending",
     )
     db.add(task_run)
-    await db.commit()
-    await db.refresh(task_run)
+    db.commit()
+    db.refresh(task_run)
     
     # Trigger async execution
-    await trigger_task_run(task_run.id)
+    import asyncio
+    asyncio.create_task(trigger_task_run(task_run.id))
     
     return TaskTriggerResponse(run_id=task_run.id, status="pending")
