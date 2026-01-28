@@ -12,6 +12,13 @@ import { TaskTable, type Task } from '@/components/tasks/task-table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
+  SOVTrendChart,
+  SentimentTrendChart,
+  KeywordPerformanceChart,
+  SentimentDistributionChart,
+  ChannelDistributionChart
+} from '@/components/charts';
+import { 
   BarChart3, 
   TrendingUp, 
   AlertTriangle, 
@@ -28,6 +35,46 @@ const mockMetrics = {
   sentiment: { value: 0.65, change: 0.12, changeType: 'increase' as const },
   citation: { value: 45.8, change: 5.2, changeType: 'increase' as const }
 };
+
+// 图表模拟数据
+const sovTrendData = [
+  { name: '1月', sov: 18.2, target: 20 },
+  { name: '2月', sov: 19.8, target: 20 },
+  { name: '3月', sov: 21.5, target: 20 },
+  { name: '4月', sov: 20.1, target: 20 },
+  { name: '5月', sov: 22.8, target: 20 },
+  { name: '6月', sov: 23.5, target: 20 },
+];
+
+const sentimentTrendData = [
+  { name: '1月', positive: 0.6, neutral: 0.3, negative: 0.1 },
+  { name: '2月', positive: 0.65, neutral: 0.25, negative: 0.1 },
+  { name: '3月', positive: 0.7, neutral: 0.2, negative: 0.1 },
+  { name: '4月', positive: 0.68, neutral: 0.22, negative: 0.1 },
+  { name: '5月', positive: 0.72, neutral: 0.18, negative: 0.1 },
+  { name: '6月', positive: 0.75, neutral: 0.15, negative: 0.1 },
+];
+
+const keywordPerformanceData = [
+  { name: '品牌A', mentions: 1250, sentiment: 0.8 },
+  { name: '产品B', mentions: 980, sentiment: 0.75 },
+  { name: '服务C', mentions: 750, sentiment: 0.65 },
+  { name: '活动D', mentions: 620, sentiment: 0.7 },
+];
+
+const sentimentDistributionData = [
+  { name: '正面', value: 65, color: '#10b981' },
+  { name: '中性', value: 25, color: '#6b7280' },
+  { name: '负面', value: 10, color: '#ef4444' },
+];
+
+const channelDistributionData = [
+  { name: '微博', value: 35, color: '#3b82f6' },
+  { name: '微信', value: 28, color: '#f59e0b' },
+  { name: '抖音', value: 20, color: '#10b981' },
+  { name: '小红书', value: 12, color: '#ef4444' },
+  { name: '其他', value: 5, color: '#8b5cf6' },
+];
 
 const mockTasks: Task[] = [
   {
@@ -144,26 +191,17 @@ export default function DashboardPage() {
 
         {/* 概览标签页 */}
         <TabsContent value="overview" className="space-y-6">
+          {/* 主要趋势图表 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 趋势图表 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2" />
-                  声量趋势
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                  <div className="text-center text-gray-500">
-                    <BarChart3 className="h-12 w-12 mx-auto mb-2" />
-                    <p>趋势图表组件</p>
-                    <p className="text-sm">将在数据可视化阶段实现</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <SOVTrendChart data={sovTrendData} />
+            <SentimentTrendChart data={sentimentTrendData} />
+          </div>
 
+          {/* 分布和性能图表 */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <SentimentDistributionChart data={sentimentDistributionData} />
+            <ChannelDistributionChart data={channelDistributionData} />
+            
             {/* 最近活动 */}
             <Card>
               <CardHeader>
@@ -195,6 +233,11 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          {/* 关键词性能分析 */}
+          <div className="grid grid-cols-1 gap-6">
+            <KeywordPerformanceChart data={keywordPerformanceData} />
           </div>
         </TabsContent>
 

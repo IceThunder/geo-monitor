@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.core.exceptions import setup_exception_handlers
 from app.models.database import init_db, close_db
 from app.services.scheduler import init_redis, close_redis
-from app.api import auth_router, tasks_router, metrics_router, alerts_router, config_router
+from app.api import auth_router, tasks_router, websocket_router, metrics_router, alerts_router, config_router
 
 # Configure logging
 if settings.LOG_FORMAT == "json":
@@ -126,11 +126,12 @@ def debug_env():
 
 
 # Include routers
-app.include_router(auth_router, prefix="/api/v1")
-app.include_router(tasks_router, prefix="/api/v1")
-app.include_router(metrics_router, prefix="/api/v1")
-app.include_router(alerts_router, prefix="/api/v1")
-app.include_router(config_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
+app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(metrics_router, prefix="/api/metrics", tags=["metrics"])
+app.include_router(alerts_router, prefix="/api/alerts", tags=["alerts"])
+app.include_router(config_router, prefix="/api/config", tags=["config"])
+app.include_router(websocket_router, prefix="/api", tags=["websocket"])
 
 
 if __name__ == "__main__":
