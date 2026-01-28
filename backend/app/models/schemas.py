@@ -226,8 +226,8 @@ class TokenResponse(BaseModel):
 
 class LoginRequest(BaseModel):
     """登录请求"""
-    email: str = Field(..., email)
-    password: str = Field(..., min_length=8)
+    email: str = Field(..., description="用户邮箱")
+    password: str = Field(..., min_length=8, description="密码")
 
 
 class UserResponse(BaseModel):
