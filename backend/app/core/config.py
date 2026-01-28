@@ -64,9 +64,22 @@ class Settings(BaseSettings):
         if self.DATABASE_URL:
             return self.DATABASE_URL
         if self.SUPABASE_URL:
-            # Convert Supabase URL to postgres connection string
-            host = self.SUPABASE_URL.replace("https://", "").replace("http://", "")
-            return f"postgresql://postgres:password@{host}:5432/postgres"
+            # Supabase URL format: https://project-id.supabase.co
+            # Extract project ID and construct direct DB connection
+            from urllib.parse import urlparse
+            
+            parsed = urlparse(self.SUPABASE_URL)
+            # Host is like: project-id.supabase.co
+            # DB host should be: project-id.supabase.co (direct) or 
+            # project-id.pooler.supabase.co (with pgbouncer)
+            hostname = parsed.hostname
+            
+            # Remove any query params or port from hostname
+            if hostname:
+                project_id = hostname.split('.')[0]
+                # Use direct connection (port 5432)
+                db_host = f"{project_id}.supabase.co"
+                return f"postgresql://postgres:password@{db_host}:5432/postgres"
         return ""
 
 
