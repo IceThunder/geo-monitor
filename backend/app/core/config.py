@@ -20,19 +20,19 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     DEBUG: bool = False
-    ENVIRONMENT: str = "development"
+    ENVIRONMENT: str = "production"
     
-    # Database
-    SUPABASE_URL: str = ""
-    SUPABASE_SERVICE_ROLE_KEY: str = ""
-    DATABASE_URL: str = ""
+    # Database (all optional, derived from SUPABASE_URL if not set)
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    DATABASE_URL: Optional[str] = None
     
     # Redis
-    UPSTASH_REDIS_REST_URL: str = ""
-    UPSTASH_REDIS_REST_TOKEN: str = ""
+    UPSTASH_REDIS_REST_URL: Optional[str] = None
+    UPSTASH_REDIS_REST_TOKEN: Optional[str] = None
     
     # OpenRouter
-    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_API_KEY: Optional[str] = None
     
     # JWT
     SECRET_KEY: str = "default-secret-key-change-in-production"
@@ -65,8 +65,8 @@ class Settings(BaseSettings):
             return self.DATABASE_URL
         if self.SUPABASE_URL:
             # Convert Supabase URL to postgres connection string
-            # https://project.supabase.co -> postgresql://postgres:password@project.supabase.co:5432/postgres
-            return f"postgresql://postgres:password@{self.SUPABASE_URL.replace('https://', '').replace('http://', '')}:5432/postgres"
+            host = self.SUPABASE_URL.replace("https://", "").replace("http://", "")
+            return f"postgresql://postgres:password@{host}:5432/postgres"
         return ""
 
 
