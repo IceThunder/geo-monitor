@@ -4,7 +4,6 @@ Configuration management using Pydantic Settings.
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 from functools import lru_cache
-import os
 
 
 class Settings(BaseSettings):
@@ -26,7 +25,7 @@ class Settings(BaseSettings):
     # Database
     SUPABASE_URL: Optional[str] = None
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
-    SUPABASE_DB_PASSWORD: Optional[str] = None  # Database password
+    SUPABASE_DB_PASSWORD: Optional[str] = None
     DATABASE_URL: Optional[str] = None
     
     # Redis
@@ -62,30 +61,25 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     
     def get_database_url(self) -> str:
-        """Get database URL, deriving from SUPABASE_URL if not set."""
+        """Get database URL from environment or construct from SUPABASE_URL."""
         if self.DATABASE_URL:
             return self.DATABASE_URL
+        
         if self.SUPABASE_URL and self.SUPABASE_DB_PASSWORD:
             # Supabase URL format: https://project-id.supabase.co
+            # Extract project ID and construct DB connection with db. prefix
             from urllib.parse import urlparse
             
             parsed = urlparse(self.SUPABASE_URL)
-            hostname = parsed.hostname
+            hostname = parsed.hostname  # e.g., "mqmzimtckgollewnvlli.supabase.co"
             
             if hostname:
-                # Extract project ID (everything before .supabase.co)
+                # Remove .supabase.co to get project ID
                 project_id = hostname.replace('.supabase.co', '')
-                db_host = f"{project_id}.supabase.co"
+                # Supabase DB host uses db. prefix
+                db_host = f"db.{project_id}.supabase.co"
                 return f"postgresql://postgres:{self.SUPABASE_DB_PASSWORD}@{db_host}:5432/postgres"
-        if self.SUPABASE_URL:
-            # Fallback: try with default password placeholder
-            from urllib.parse import urlparse
-            parsed = urlparse(self.SUPABASE_URL)
-            hostname = parsed.hostname
-            if hostname:
-                project_id = hostname.replace('.supabase.co', '')
-                db_host = f"{project_id}.supabase.co"
-                return f"postgresql://postgres:password@{db_host}:5432/postgres"
+        
         return ""
 
 
