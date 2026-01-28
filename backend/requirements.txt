@@ -15,8 +15,9 @@ redis==5.0.1
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-# 认证 (移除 cryptography 避免 Rust 编译)
+# 认证
 python-jose==3.3.0
+passlib==1.7.4
 python-multipart==0.0.6
 
 # 异步支持
