@@ -65,7 +65,11 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "json"
     
     # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "https://geo-monitor-delta.vercel.app",
+        "https://*.vercel.app",
+    ]
     
     def get_database_url(self) -> str:
         """Get database URL from environment or construct from SUPABASE_URL.
