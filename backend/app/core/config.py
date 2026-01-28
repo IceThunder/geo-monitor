@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     SUPABASE_DB_PASSWORD: Optional[str] = None
     DATABASE_URL: Optional[str] = None
+    SUPABASE_PROJECT_REF: Optional[str] = None  # e.g., mqmzimtckgollewnvlli
     
     # Connection Pool
     DB_POOL_SIZE: int = 5
@@ -74,6 +75,16 @@ class Settings(BaseSettings):
         if self.DATABASE_URL:
             return self.DATABASE_URL
         
+        # Use pooler URL format from Supabase
+        if self.SUPABASE_PROJECT_REF and self.SUPABASE_DB_PASSWORD:
+            # Format: postgres://postgres.{project_ref}:{password}@{region}.pooler.supabase.com:6543/postgres?pgbouncer=true
+            region = "aws-1-ap-northeast-1"  # Default region, can be made configurable
+            return (
+                f"postgresql://postgres.{self.SUPABASE_PROJECT_REF}:{self.SUPABASE_DB_PASSWORD}"
+                f"@{region}.pooler.supabase.com:6543/postgres?pgbouncer=true"
+            )
+        
+        # Fallback: try to extract from SUPABASE_URL
         if self.SUPABASE_URL and self.SUPABASE_DB_PASSWORD:
             from urllib.parse import urlparse
             
@@ -81,8 +92,14 @@ class Settings(BaseSettings):
             hostname = parsed.hostname  # e.g., "mqmzimtckgollewnvlli.supabase.co"
             
             if hostname:
-                # Use the same DB host but different port for pooler
-                return f"postgresql://postgres:{self.SUPABASE_DB_PASSWORD}@{hostname}:6543/postgres"
+                # Extract project ref (everything before .supabase.co)
+                project_ref = hostname.replace('.supabase.co', '')
+                # Use default region
+                region = "aws-1-ap-northeast-1"
+                return (
+                    f"postgresql://postgres.{project_ref}:{self.SUPABASE_DB_PASSWORD}"
+                    f"@{region}.pooler.supabase.com:6543/postgres?pgbouncer=true"
+                )
         
         return ""
     
