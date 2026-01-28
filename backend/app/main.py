@@ -115,6 +115,16 @@ def root():
     }
 
 
+# Debug endpoint to check environment
+@app.get("/debug/env", tags=["Debug"])
+def debug_env():
+    """Debug endpoint to check environment variables."""
+    return {
+        "ENVIRONMENT": settings.ENVIRONMENT,
+        "DEBUG": settings.DEBUG,
+    }
+
+
 # Include routers
 app.include_router(tasks_router, prefix="/api/v1")
 app.include_router(metrics_router, prefix="/api/v1")
