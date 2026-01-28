@@ -67,13 +67,14 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     
     def get_database_url(self) -> str:
-        """Get database URL from environment or construct from SUPABASE_URL."""
+        """Get database URL from environment or construct from SUPABASE_URL.
+        
+        Uses Supabase Connection Pooler (pgbouncer) on port 6543.
+        """
         if self.DATABASE_URL:
             return self.DATABASE_URL
         
         if self.SUPABASE_URL and self.SUPABASE_DB_PASSWORD:
-            # Supabase URL format: https://project-id.supabase.co
-            # Extract project ID and construct DB connection with db. prefix
             from urllib.parse import urlparse
             
             parsed = urlparse(self.SUPABASE_URL)
@@ -82,9 +83,9 @@ class Settings(BaseSettings):
             if hostname:
                 # Remove .supabase.co to get project ID
                 project_id = hostname.replace('.supabase.co', '')
-                # Supabase DB host uses db. prefix
-                db_host = f"db.{project_id}.supabase.co"
-                return f"postgresql://postgres:{self.SUPABASE_DB_PASSWORD}@{db_host}:5432/postgres"
+                # Use Supabase Connection Pooler (pgbouncer) on port 6543
+                pooler_host = f"pooler.{project_id}.supabase.co"
+                return f"postgresql://postgres:{self.SUPABASE_DB_PASSWORD}@{pooler_host}:6543/postgres"
         
         return ""
     
