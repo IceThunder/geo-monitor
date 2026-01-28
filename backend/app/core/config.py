@@ -23,19 +23,19 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     
     # Database
-    SUPABASE_URL: str
-    SUPABASE_SERVICE_ROLE_KEY: str
-    DATABASE_URL: str
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    DATABASE_URL: str = ""
     
     # Redis
-    UPSTASH_REDIS_REST_URL: str
-    UPSTASH_REDIS_REST_TOKEN: str
+    UPSTASH_REDIS_REST_URL: str = ""
+    UPSTASH_REDIS_REST_TOKEN: str = ""
     
     # OpenRouter
-    OPENROUTER_API_KEY: str
+    OPENROUTER_API_KEY: str = ""
     
     # JWT
-    SECRET_KEY: str
+    SECRET_KEY: str = "default-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
@@ -58,6 +58,16 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    
+    def get_database_url(self) -> str:
+        """Get database URL, deriving from SUPABASE_URL if not set."""
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
+        if self.SUPABASE_URL:
+            # Convert Supabase URL to postgres connection string
+            # https://project.supabase.co -> postgresql://postgres:password@project.supabase.co:5432/postgres
+            return f"postgresql://postgres:password@{self.SUPABASE_URL.replace('https://', '').replace('http://', '')}:5432/postgres"
+        return ""
 
 
 @lru_cache()
