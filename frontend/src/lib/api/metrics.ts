@@ -63,7 +63,7 @@ export const metricApi = {
    * Get dashboard overview data
    */
   getDashboardOverview: async (params: DateRangeParams): Promise<DashboardOverviewResponse> => {
-    const response = await apiClient.get('/dashboard/overview', { params });
+    const response = await apiClient.get('/metrics/dashboard/overview', { params });
     return response.data;
   },
 
