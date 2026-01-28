@@ -6,7 +6,7 @@ in AI models like ChatGPT, Claude, and Gemini.
 """
 
 import logging
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -30,9 +30,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@contextmanager
-def lifespan(app: FastAPI):
-    """Application lifespan manager - synchronous version."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager."""
     # Startup
     logger.info("Starting GEO Monitor API...")
     
