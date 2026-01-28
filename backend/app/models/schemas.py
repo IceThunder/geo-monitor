@@ -167,7 +167,7 @@ class MarkAlertReadResponse(BaseModel):
 
 class WebhookTestRequest(BaseModel):
     """Webhook 测试请求"""
-    webhook_url: str = Field(..., url)
+    webhook_url: str = Field(..., description="Webhook URL")
 
 
 class WebhookTestResponse(BaseModel):
