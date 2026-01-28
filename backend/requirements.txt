@@ -26,6 +26,7 @@ httpx==0.26.0
 
 # 调度
 apscheduler==3.10.4
+croniter==2.0.1
 
 # 配置
 python-dotenv==1.0.0

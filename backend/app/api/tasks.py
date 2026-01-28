@@ -17,8 +17,17 @@ from app.models.schemas import (
     TaskListResponse,
     TaskTriggerResponse,
 )
-from app.core.security import get_current_tenant_id
+from app.core.security import (
+    get_current_tenant_id, 
+    get_current_user_membership, 
+    check_permission, 
+    Permission
+)
+from app.models.entities import TenantMember
 from app.core.exceptions import NotFoundException, ValidationException
+from croniter import croniter
+import re
+from datetime import datetime
 from app.services.scheduler import trigger_task_run
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -31,9 +40,16 @@ def list_tasks(
     is_active: Optional[bool] = None,
     search: Optional[str] = None,
     tenant_id: str = Depends(get_current_tenant_id),
+    membership: TenantMember = Depends(get_current_user_membership),
     db: Session = Depends(get_db),
 ):
     """List all monitor tasks for the current tenant."""
+    # Check read permission
+    if not check_permission(membership, Permission.READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to view tasks"
+        )
     # Build query
     query = select(MonitorTask).where(MonitorTask.tenant_id == tenant_id)
     
@@ -96,9 +112,16 @@ def list_tasks(
 def get_task(
     task_id: uuid.UUID,
     tenant_id: str = Depends(get_current_tenant_id),
+    membership: TenantMember = Depends(get_current_user_membership),
     db: Session = Depends(get_db),
 ):
     """Get a specific task by ID."""
+    # Check read permission
+    if not check_permission(membership, Permission.READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to view task"
+        )
     result = db.execute(
         select(MonitorTask)
         .options(
@@ -142,9 +165,28 @@ def get_task(
 def create_task(
     task_data: TaskCreate,
     tenant_id: str = Depends(get_current_tenant_id),
+    membership: TenantMember = Depends(get_current_user_membership),
     db: Session = Depends(get_db),
 ):
     """Create a new monitor task."""
+    # Check write permission
+    if not check_permission(membership, Permission.WRITE):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to create tasks"
+        )
+    
+    # Validate cron expression
+    if not _validate_cron_expression(task_data.schedule_cron):
+        raise ValidationException("Invalid cron expression")
+    
+    # Validate models
+    if not _validate_models(task_data.models):
+        raise ValidationException("Invalid model IDs provided")
+    
+    # Validate keywords
+    if not _validate_keywords(task_data.keywords):
+        raise ValidationException("Invalid keywords provided")
     # Create task
     task = MonitorTask(
         tenant_id=tenant_id,
@@ -187,9 +229,28 @@ def update_task(
     task_id: uuid.UUID,
     task_data: TaskUpdate,
     tenant_id: str = Depends(get_current_tenant_id),
+    membership: TenantMember = Depends(get_current_user_membership),
     db: Session = Depends(get_db),
 ):
     """Update an existing task."""
+    # Check write permission
+    if not check_permission(membership, Permission.WRITE):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to update tasks"
+        )
+    
+    # Validate cron expression if provided
+    if task_data.schedule_cron and not _validate_cron_expression(task_data.schedule_cron):
+        raise ValidationException("Invalid cron expression")
+    
+    # Validate models if provided
+    if task_data.models and not _validate_models(task_data.models):
+        raise ValidationException("Invalid model IDs provided")
+    
+    # Validate keywords if provided
+    if task_data.keywords and not _validate_keywords(task_data.keywords):
+        raise ValidationException("Invalid keywords provided")
     # Get task
     result = db.execute(
         select(MonitorTask)
@@ -258,9 +319,16 @@ def update_task(
 def delete_task(
     task_id: uuid.UUID,
     tenant_id: str = Depends(get_current_tenant_id),
+    membership: TenantMember = Depends(get_current_user_membership),
     db: Session = Depends(get_db),
 ):
     """Delete a task and all associated data."""
+    # Check delete permission
+    if not check_permission(membership, Permission.DELETE):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to delete tasks"
+        )
     result = db.execute(
         select(MonitorTask)
         .where(MonitorTask.id == task_id, MonitorTask.tenant_id == tenant_id)
@@ -278,9 +346,16 @@ def delete_task(
 def trigger_task(
     task_id: uuid.UUID,
     tenant_id: str = Depends(get_current_tenant_id),
+    membership: TenantMember = Depends(get_current_user_membership),
     db: Session = Depends(get_db),
 ):
     """Manually trigger a task execution."""
+    # Check write permission
+    if not check_permission(membership, Permission.WRITE):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to trigger tasks"
+        )
     result = db.execute(
         select(MonitorTask)
         .where(MonitorTask.id == task_id, MonitorTask.tenant_id == tenant_id)
@@ -304,3 +379,225 @@ def trigger_task(
     asyncio.create_task(trigger_task_run(task_run.id))
     
     return TaskTriggerResponse(run_id=task_run.id, status="pending")
+
+
+# ============================================================================
+# Validation Functions
+# ============================================================================
+
+def _validate_cron_expression(cron_expr: str) -> bool:
+    """Validate cron expression format."""
+    try:
+        croniter(cron_expr)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+def _validate_models(models: list[str]) -> bool:
+    """Validate model IDs."""
+    if not models:
+        return False
+    
+    # Define supported model patterns
+    supported_patterns = [
+        r'^openai/gpt-.*',
+        r'^anthropic/claude-.*',
+        r'^google/gemini-.*',
+        r'^meta-llama/.*',
+        r'^mistralai/.*',
+        r'^cohere/.*',
+    ]
+    
+    for model_id in models:
+        if not isinstance(model_id, str) or not model_id.strip():
+            return False
+        
+        # Check if model matches any supported pattern
+        if not any(re.match(pattern, model_id) for pattern in supported_patterns):
+            return False
+    
+    return True
+
+
+def _validate_keywords(keywords: list[str]) -> bool:
+    """Validate keywords."""
+    if not keywords:
+        return False
+    
+    for keyword in keywords:
+        if not isinstance(keyword, str) or not keyword.strip():
+            return False
+        
+        # Check keyword length
+        if len(keyword.strip()) < 2 or len(keyword.strip()) > 500:
+            return False
+        
+        # Check for invalid characters (basic validation)
+        if re.search(r'[<>"\\]', keyword):
+            return False
+    
+    return True
+
+
+@router.get("/models", response_model=dict)
+def get_supported_models(
+    membership: TenantMember = Depends(get_current_user_membership)
+):
+    """Get list of supported AI models."""
+    # Check read permission
+    if not check_permission(membership, Permission.READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to view models"
+        )
+    
+    models = {
+        "openai": [
+            {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "OpenAI"},
+            {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI"},
+            {"id": "openai/gpt-4-turbo", "name": "GPT-4 Turbo", "provider": "OpenAI"},
+            {"id": "openai/gpt-3.5-turbo", "name": "GPT-3.5 Turbo", "provider": "OpenAI"},
+        ],
+        "anthropic": [
+            {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic"},
+            {"id": "anthropic/claude-3-opus", "name": "Claude 3 Opus", "provider": "Anthropic"},
+            {"id": "anthropic/claude-3-haiku", "name": "Claude 3 Haiku", "provider": "Anthropic"},
+        ],
+        "google": [
+            {"id": "google/gemini-1.5-pro", "name": "Gemini 1.5 Pro", "provider": "Google"},
+            {"id": "google/gemini-1.5-flash", "name": "Gemini 1.5 Flash", "provider": "Google"},
+        ],
+        "meta": [
+            {"id": "meta-llama/llama-3.1-70b-instruct", "name": "Llama 3.1 70B", "provider": "Meta"},
+            {"id": "meta-llama/llama-3.1-8b-instruct", "name": "Llama 3.1 8B", "provider": "Meta"},
+        ],
+        "mistral": [
+            {"id": "mistralai/mistral-large", "name": "Mistral Large", "provider": "Mistral AI"},
+            {"id": "mistralai/mistral-medium", "name": "Mistral Medium", "provider": "Mistral AI"},
+        ],
+        "cohere": [
+            {"id": "cohere/command-r-plus", "name": "Command R+", "provider": "Cohere"},
+            {"id": "cohere/command-r", "name": "Command R", "provider": "Cohere"},
+        ]
+    }
+    
+    return {"models": models}
+
+
+@router.get("/validate-cron", response_model=dict)
+def validate_cron(
+    expression: str = Query(..., description="Cron expression to validate"),
+    membership: TenantMember = Depends(get_current_user_membership)
+):
+    """Validate a cron expression and return next execution times."""
+    # Check read permission
+    if not check_permission(membership, Permission.READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions"
+        )
+    
+    try:
+        cron = croniter(expression)
+        next_runs = []
+        
+        # Get next 5 execution times
+        for _ in range(5):
+            next_runs.append(cron.get_next(datetime).isoformat())
+        
+        return {
+            "valid": True,
+            "next_runs": next_runs,
+            "description": _describe_cron_expression(expression)
+        }
+    except (ValueError, TypeError) as e:
+        return {
+            "valid": False,
+            "error": str(e),
+            "next_runs": [],
+            "description": None
+        }
+
+
+def _describe_cron_expression(cron_expr: str) -> str:
+    """Generate human-readable description of cron expression."""
+    common_expressions = {
+        "0 0 * * *": "Daily at midnight",
+        "0 9 * * *": "Daily at 9:00 AM",
+        "0 */6 * * *": "Every 6 hours",
+        "0 0 * * 0": "Weekly on Sunday at midnight",
+        "0 0 1 * *": "Monthly on the 1st at midnight",
+        "*/30 * * * *": "Every 30 minutes",
+        "0 */2 * * *": "Every 2 hours",
+        "0 8-18 * * 1-5": "Hourly from 8 AM to 6 PM, Monday to Friday"
+    }
+    
+    return common_expressions.get(cron_expr, "Custom schedule")
+
+
+@router.get("/{task_id}/runs", response_model=dict)
+def get_task_runs(
+    task_id: uuid.UUID,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    status: Optional[str] = Query(default=None, description="Filter by status"),
+    tenant_id: str = Depends(get_current_tenant_id),
+    membership: TenantMember = Depends(get_current_user_membership),
+    db: Session = Depends(get_db)
+):
+    """Get execution history for a specific task."""
+    # Check read permission
+    if not check_permission(membership, Permission.READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to view task runs"
+        )
+    
+    # Verify task exists and belongs to tenant
+    task_result = db.execute(
+        select(MonitorTask).where(
+            MonitorTask.id == task_id,
+            MonitorTask.tenant_id == tenant_id
+        )
+    )
+    task = task_result.scalar_one_or_none()
+    
+    if not task:
+        raise NotFoundException("Task", str(task_id))
+    
+    # Build query for task runs
+    query = select(TaskRun).where(TaskRun.task_id == task_id)
+    
+    if status:
+        query = query.where(TaskRun.status == status)
+    
+    # Get total count
+    count_result = db.execute(
+        select(uuid.func.count()).select_from(query.subquery())
+    )
+    total = count_result.scalar() or 0
+    
+    # Get paginated results
+    query = query.offset((page - 1) * limit).limit(limit).order_by(TaskRun.created_at.desc())
+    result = db.execute(query)
+    runs = result.scalars().all()
+    
+    return {
+        "data": [
+            {
+                "id": run.id,
+                "status": run.status,
+                "started_at": run.started_at.isoformat() if run.started_at else None,
+                "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+                "error_message": run.error_message,
+                "token_usage": run.token_usage,
+                "cost_usd": float(run.cost_usd) if run.cost_usd else 0.0,
+                "created_at": run.created_at.isoformat()
+            }
+            for run in runs
+        ],
+        "total": total,
+        "page": page,
+        "limit": limit
+    }

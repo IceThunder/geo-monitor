@@ -232,6 +232,86 @@ class MetricsSnapshot(Base):
 
 
 # ============================================================================
+# User Management
+# ============================================================================
+
+class User(Base):
+    """用户表"""
+    __tablename__ = "users"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), 
+        primary_key=True, 
+        default=uuid.uuid4
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    hashed_password: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    supabase_user_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=datetime.utcnow, 
+        onupdate=datetime.utcnow
+    )
+    
+    # Relationships
+    tenant_memberships: Mapped[List["TenantMember"]] = relationship(
+        "TenantMember", 
+        back_populates="user"
+    )
+
+
+class TenantMember(Base):
+    """租户成员关联表"""
+    __tablename__ = "tenant_members"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), 
+        primary_key=True, 
+        default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), 
+        ForeignKey("tenant_configs.tenant_id", ondelete="CASCADE"),
+        nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), 
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    role: Mapped[str] = mapped_column(
+        String(50), 
+        default="member"
+    )  # owner, admin, member, viewer
+    permissions: Mapped[dict] = mapped_column(JSON, default=dict)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    invited_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=datetime.utcnow
+    )
+    joined_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), 
+        nullable=True
+    )
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="tenant_memberships")
+    tenant: Mapped["TenantConfig"] = relationship("TenantConfig", back_populates="members")
+    
+    # Unique constraint
+    __table_args__ = (
+        {},
+    )
+
+
+# ============================================================================
 # Tenant Configuration
 # ============================================================================
 
@@ -272,6 +352,10 @@ class TenantConfig(Base):
     # Relationships
     tasks: Mapped[List["MonitorTask"]] = relationship(
         "MonitorTask", 
+        back_populates="tenant"
+    )
+    members: Mapped[List["TenantMember"]] = relationship(
+        "TenantMember", 
         back_populates="tenant"
     )
 
