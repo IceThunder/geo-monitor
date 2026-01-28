@@ -214,8 +214,20 @@ class ReportExportRequest(BaseModel):
 
 
 # ============================================================================
-# Auth Schemas
+# Auth Schemas - User classes first (before TokenResponse)
 # ============================================================================
+
+class UserResponse(BaseModel):
+    """用户响应"""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: uuid.UUID
+    email: str
+    name: Optional[str]
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+
 
 class TokenResponse(BaseModel):
     """Token 响应"""
@@ -251,18 +263,6 @@ class PasswordResetConfirm(BaseModel):
     """密码重置确认"""
     token: str = Field(..., description="重置令牌")
     new_password: str = Field(..., min_length=8, description="新密码")
-
-
-class UserResponse(BaseModel):
-    """用户响应"""
-    model_config = ConfigDict(from_attributes=True)
-    
-    id: uuid.UUID
-    email: str
-    name: Optional[str]
-    is_active: bool
-    is_verified: bool
-    created_at: datetime
 
 
 class UserCreate(BaseModel):
