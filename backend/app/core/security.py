@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.core.config import settings
@@ -65,9 +65,9 @@ def decode_token(token: str) -> dict:
         )
 
 
-async def get_current_tenant(
+def get_current_tenant(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ) -> TenantConfig:
     """Get current tenant from JWT token."""
     token = credentials.credentials
@@ -82,7 +82,7 @@ async def get_current_tenant(
         )
     
     # Query tenant config
-    result = await db.execute(
+    result = db.execute(
         select(TenantConfig).where(
             TenantConfig.tenant_id == tenant_id
         )
@@ -99,10 +99,10 @@ async def get_current_tenant(
     return tenant
 
 
-async def get_current_tenant_id(
+def get_current_tenant_id(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> str:
-    """Get current tenant ID from JWT token (simplified)."""
+    """Get current tenant ID from JWT token (synchronous version)."""
     token = credentials.credentials
     payload = decode_token(token)
     
