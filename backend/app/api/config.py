@@ -1,7 +1,6 @@
 """
 Tenant configuration API routes.
 """
-from cryptography.fernet import Fernet
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -19,24 +18,16 @@ from app.core.config import settings
 router = APIRouter(prefix="/config", tags=["Configuration"])
 
 
-# Simple encryption key (in production, use proper key management)
-def get_encryption_key() -> bytes:
-    """Get encryption key for API keys."""
-    key = settings.SECRET_KEY.encode()[:32]
-    return base64.urlsafe_b64encode(key.ljust(32))
+# Simple encoding (not encryption - for development only)
+# In production, use proper encryption or external secrets management
+def encode_api_key(api_key: str) -> str:
+    """Encode an API key (simple base64, not secure for production)."""
+    return base64.b64encode(api_key.encode()).decode()
 
 
-cipher = Fernet(get_encryption_key())
-
-
-def encrypt_api_key(api_key: str) -> str:
-    """Encrypt an API key."""
-    return cipher.encrypt(api_key.encode()).decode()
-
-
-def decrypt_api_key(encrypted_key: str) -> str:
-    """Decrypt an API key."""
-    return cipher.decrypt(encrypted_key.encode()).decode()
+def decode_api_key(encoded_key: str) -> str:
+    """Decode an API key."""
+    return base64.b64decode(encoded_key.encode()).decode()
 
 
 @router.get("", response_model=TenantConfigResponse)
@@ -87,7 +78,7 @@ async def update_tenant_config(
     
     # Update fields
     if config_update.openrouter_api_key is not None:
-        config.openrouter_api_key_encrypted = encrypt_api_key(config_update.openrouter_api_key)
+        config.openrouter_api_key_encrypted = encode_api_key(config_update.openrouter_api_key)
     
     if config_update.webhook_url is not None:
         config.webhook_url = config_update.webhook_url
@@ -114,7 +105,7 @@ async def get_openrouter_key(
     tenant_id: str = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get the decrypted OpenRouter API key (for internal use only)."""
+    """Get the decoded OpenRouter API key (for internal use only)."""
     result = await db.execute(
         select(TenantConfig).where(TenantConfig.tenant_id == tenant_id)
     )
@@ -125,10 +116,10 @@ async def get_openrouter_key(
         return {"api_key": settings.OPENROUTER_API_KEY}
     
     try:
-        api_key = decrypt_api_key(config.openrouter_api_key_encrypted)
+        api_key = decode_api_key(config.openrouter_api_key_encrypted)
         return {"api_key": api_key}
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to decrypt API key",
+            detail="Failed to decode API key",
         )
