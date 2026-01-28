@@ -81,11 +81,8 @@ class Settings(BaseSettings):
             hostname = parsed.hostname  # e.g., "mqmzimtckgollewnvlli.supabase.co"
             
             if hostname:
-                # Remove .supabase.co to get project ID
-                project_id = hostname.replace('.supabase.co', '')
-                # Use Supabase Connection Pooler (pgbouncer) on port 6543
-                pooler_host = f"pooler.{project_id}.supabase.co"
-                return f"postgresql://postgres:{self.SUPABASE_DB_PASSWORD}@{pooler_host}:6543/postgres"
+                # Use the same DB host but different port for pooler
+                return f"postgresql://postgres:{self.SUPABASE_DB_PASSWORD}@{hostname}:6543/postgres"
         
         return ""
     
