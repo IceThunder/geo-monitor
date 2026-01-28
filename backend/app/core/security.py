@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+import uuid
 
 from app.core.config import settings
 from app.models.database import get_db
@@ -68,8 +69,23 @@ def decode_token(token: str) -> dict:
 def get_current_tenant(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
-) -> TenantConfig:
-    """Get current tenant from JWT token."""
+) -> dict:
+    """Get current tenant from JWT token.
+    
+    In development mode, returns a default tenant without authentication.
+    """
+    # Development mode: skip authentication
+    if settings.ENVIRONMENT == "development":
+        # Return a mock tenant dict for testing
+        return {
+            "id": str(uuid.uuid4()),
+            "tenant_id": "00000000-0000-0000-0000-000000000001",
+            "openrouter_api_key_encrypted": None,
+            "webhook_url": None,
+            "alert_threshold_accuracy": 6,
+            "alert_threshold_sentiment": 0.5,
+        }
+    
     token = credentials.credentials
     payload = decode_token(token)
     
@@ -102,7 +118,15 @@ def get_current_tenant(
 def get_current_tenant_id(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> str:
-    """Get current tenant ID from JWT token (synchronous version)."""
+    """Get current tenant ID from JWT token (synchronous version).
+    
+    In development mode, returns a default tenant ID without authentication.
+    """
+    # Development mode: skip authentication
+    if settings.ENVIRONMENT == "development":
+        # Return a default tenant ID for testing
+        return "00000000-0000-0000-0000-000000000001"
+    
     token = credentials.credentials
     payload = decode_token(token)
     
