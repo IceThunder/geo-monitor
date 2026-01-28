@@ -73,7 +73,7 @@ class TaskModel(Base):
         ForeignKey("monitor_tasks.id", ondelete="CASCADE"),
         primary_key=True
     )
-    model_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    model_identifier: Mapped[str] = mapped_column("model_id", String(100), primary_key=True)
     priority: Mapped[int] = mapped_column(Integer, default=10)
     
     # Relationships
@@ -166,7 +166,7 @@ class ModelOutput(Base):
         nullable=False
     )
     keyword: Mapped[str] = mapped_column(String(500), nullable=False)
-    model_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_identifier: Mapped[str] = mapped_column("model_id", String(100), nullable=False)
     raw_response: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     raw_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="pending")
@@ -199,7 +199,7 @@ class MetricsSnapshot(Base):
         ForeignKey("task_runs.id", ondelete="CASCADE"),
         nullable=False
     )
-    model_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_identifier: Mapped[str] = mapped_column("model_id", String(100), nullable=False)
     keyword: Mapped[str] = mapped_column(String(500), nullable=False)
     sov_score: Mapped[Optional[Numeric]] = mapped_column(
         Numeric(5, 2), 
