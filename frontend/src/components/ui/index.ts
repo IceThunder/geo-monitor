@@ -19,9 +19,8 @@ export * from './select';
 export * from './form';
 export * from './toast';
 
-// 待添加的组件
+// 已实现的组件
 export * from './tabs';
-export * from './tooltip';
 export * from './switch';
 export * from './checkbox';
 export * from './progress';
