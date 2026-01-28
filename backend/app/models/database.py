@@ -1,24 +1,14 @@
 """
 Database connection and session management.
 """
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
+from typing import Generator
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker, DeclarativeBase
 from app.core.config import settings
 
-def get_async_database_url():
-    """Convert DATABASE_URL to async format for psycopg2."""
-    url = settings.DATABASE_URL
-    # Convert postgresql:// to postgresql+psycopg2:// for async
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
-    elif url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
-    return url
-
-# Create async engine using psycopg2
-engine = create_async_engine(
-    get_async_database_url(),
+# Create sync engine
+engine = create_engine(
+    settings.DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,
@@ -26,35 +16,24 @@ engine = create_async_engine(
 )
 
 # Create session factory
-async_session_factory = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Base class for models
 class Base(DeclarativeBase):
     pass
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+def get_db() -> Generator[Session, None, None]:
     """Dependency for getting database session."""
-    async with async_session_factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-async def init_db():
+def init_db():
     """Initialize database tables."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    Base.metadata.create_all(bind=engine)
 
-async def close_db():
+def close_db():
     """Close database connections."""
-    await engine.dispose()
+    engine.dispose()

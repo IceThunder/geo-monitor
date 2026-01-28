@@ -6,7 +6,7 @@ in AI models like ChatGPT, Claude, and Gemini.
 """
 
 import logging
-from contextlib import asynccontextmanager
+from contextlib import contextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -27,19 +27,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
+@contextmanager
+def lifespan(app: FastAPI):
+    """Application lifespan manager - synchronous version."""
     # Startup
     logger.info("Starting GEO Monitor API...")
     
     try:
         # Initialize database
-        await init_db()
+        init_db()
         logger.info("Database initialized")
         
         # Initialize Redis
-        await init_redis()
+        init_redis()
         logger.info("Redis initialized")
         
         logger.info("GEO Monitor API started successfully")
@@ -50,8 +50,8 @@ async def lifespan(app: FastAPI):
         # Shutdown
         logger.info("Shutting down GEO Monitor API...")
         
-        await close_redis()
-        await close_db()
+        close_redis()
+        close_db()
         
         logger.info("GEO Monitor API shut down")
 
@@ -95,14 +95,14 @@ setup_exception_handlers(app)
 
 # Health check endpoint
 @app.get("/health", tags=["Health"])
-async def health_check():
+def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "version": "1.0.0"}
 
 
 # Root endpoint
 @app.get("/", tags=["Root"])
-async def root():
+def root():
     """Root endpoint with API information."""
     return {
         "name": "GEO Monitor API",

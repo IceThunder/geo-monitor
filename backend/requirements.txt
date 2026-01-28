@@ -2,8 +2,10 @@
 fastapi==0.109.0
 uvicorn==0.27.0
 
-# 数据库
+# 数据库 (psycopg2-binary 是纯 Python)
 sqlalchemy==2.0.25
+
+# 直接安装 psycopg2 (纯 Python)
 psycopg2-binary==2.9.9
 
 # Redis
@@ -13,7 +15,7 @@ redis==5.0.1
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-# 认证 (简化依赖)
+# 认证 (移除 cryptography 避免 Rust 编译)
 python-jose==3.3.0
 python-multipart==0.0.6
 
@@ -34,4 +36,3 @@ structlog==24.1.0
 pytest==7.4.4
 pytest-asyncio==0.23.3
 pytest-cov==4.1.0
-httpx==0.26.0
