@@ -77,11 +77,11 @@ class Settings(BaseSettings):
         
         # Use pooler URL format from Supabase
         if self.SUPABASE_PROJECT_REF and self.SUPABASE_DB_PASSWORD:
-            # Format: postgres://postgres.{project_ref}:{password}@{region}.pooler.supabase.com:6543/postgres?pgbouncer=true
-            region = "aws-1-ap-northeast-1"  # Default region, can be made configurable
+            # Format: postgres://postgres.{project_ref}:{password}@{region}.pooler.supabase.com:6543/postgres
+            region = "aws-1-ap-northeast-1"
             return (
                 f"postgresql://postgres.{self.SUPABASE_PROJECT_REF}:{self.SUPABASE_DB_PASSWORD}"
-                f"@{region}.pooler.supabase.com:6543/postgres?pgbouncer=true"
+                f"@{region}.pooler.supabase.com:6543/postgres"
             )
         
         # Fallback: try to extract from SUPABASE_URL
@@ -89,16 +89,14 @@ class Settings(BaseSettings):
             from urllib.parse import urlparse
             
             parsed = urlparse(self.SUPABASE_URL)
-            hostname = parsed.hostname  # e.g., "mqmzimtckgollewnvlli.supabase.co"
+            hostname = parsed.hostname
             
             if hostname:
-                # Extract project ref (everything before .supabase.co)
                 project_ref = hostname.replace('.supabase.co', '')
-                # Use default region
                 region = "aws-1-ap-northeast-1"
                 return (
                     f"postgresql://postgres.{project_ref}:{self.SUPABASE_DB_PASSWORD}"
-                    f"@{region}.pooler.supabase.com:6543/postgres?pgbouncer=true"
+                    f"@{region}.pooler.supabase.com:6543/postgres"
                 )
         
         return ""
