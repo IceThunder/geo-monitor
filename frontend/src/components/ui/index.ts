@@ -18,12 +18,7 @@ export * from './dropdown-menu';
 export * from './select';
 export * from './form';
 export * from './toast';
-
-// 已实现的组件
 export * from './tabs';
-export * from './switch';
-export * from './checkbox';
-export * from './progress';
 export * from './label';
 export * from './textarea';
 export * from './separator';
