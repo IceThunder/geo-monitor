@@ -64,11 +64,12 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
     
-    # CORS
+    # CORS (can be comma-separated string or JSON array)
     CORS_ORIGINS: str = "http://localhost:3000,https://geo-monitor-delta.vercel.app,https://*.vercel.app"
     
-    def get_cors_origins_list(self) -> list[str]:
-        """Parse CORS_ORIGINS from comma-separated string."""
+    @property
+    def CORS_ORIGINS_LIST(self) -> list[str]:
+        """Parse CORS_ORIGINS to list."""
         if isinstance(self.CORS_ORIGINS, str):
             return [origin.strip() for origin in self.CORS_ORIGINS.split(',') if origin.strip()]
         return list(self.CORS_ORIGINS)
