@@ -141,35 +141,86 @@ export function PieChart({
 }
 
 // 预设的饼图组件
-export function SentimentDistributionChart({ data, className }: { data: PieChartDataPoint[]; className?: string }) {
-  return (
-    <PieChart
-      data={data}
-      title="情感分布"
-      colors={['#10b981', '#6b7280', '#ef4444']}
-      className={className}
-    />
-  );
+export interface SentimentDistributionChartProps {
+  data: PieChartDataPoint[];
+  title?: string;
+  colors?: string[];
+  height?: number;
+  className?: string;
 }
 
-export function ChannelDistributionChart({ data, className }: { data: PieChartDataPoint[]; className?: string }) {
-  return (
-    <PieChart
-      data={data}
-      title="渠道分布"
-      colors={['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6']}
-      className={className}
-    />
-  );
-}
+export function SentimentDistributionChart({ 
+  data, 
+  title = "情感分布", 
+  colors,
+  height,
+  className 
+}: SentimentDistributionChartProps) {
+  const defaultColors = ['#10b981', '#6b7280', '#ef4444'];
 
-export function DonutChart({ data, title, className }: { data: PieChartDataPoint[]; title?: string; className?: string }) {
   return (
     <PieChart
       data={data}
       title={title}
-      innerRadius={40}
-      outerRadius={80}
+      colors={colors || defaultColors}
+      height={height}
+      className={className}
+    />
+  );
+}
+
+export interface ChannelDistributionChartProps {
+  data: PieChartDataPoint[];
+  title?: string;
+  colors?: string[];
+  height?: number;
+  className?: string;
+}
+
+export function ChannelDistributionChart({ 
+  data, 
+  title = "渠道分布", 
+  colors,
+  height,
+  className 
+}: ChannelDistributionChartProps) {
+  const defaultColors = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+
+  return (
+    <PieChart
+      data={data}
+      title={title}
+      colors={colors || defaultColors}
+      height={height}
+      className={className}
+    />
+  );
+}
+
+export interface DonutChartProps {
+  data: PieChartDataPoint[];
+  title?: string;
+  colors?: string[];
+  height?: number;
+  className?: string;
+}
+
+export function DonutChart({ 
+  data, 
+  title, 
+  colors,
+  height,
+  className 
+}: DonutChartProps) {
+  const defaultColors = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+
+  return (
+    <PieChart
+      data={data}
+      title={title}
+      colors={colors || defaultColors}
+      height={height}
+      innerRadius={60}
       className={className}
     />
   );

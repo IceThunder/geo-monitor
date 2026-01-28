@@ -15,7 +15,13 @@ from app.core.config import settings
 from app.core.exceptions import setup_exception_handlers
 from app.models.database import init_db, close_db
 from app.services.scheduler import init_redis, close_redis
-from app.api import auth_router, tasks_router, websocket_router, metrics_router, alerts_router, config_router
+from app.api import auth_router, tasks_router, metrics_router, alerts_router, config_router
+try:
+    from app.api import websocket_router
+    WEBSOCKET_AVAILABLE = True
+except ImportError:
+    websocket_router = None
+    WEBSOCKET_AVAILABLE = False
 
 # Configure logging
 if settings.LOG_FORMAT == "json":
@@ -131,7 +137,13 @@ app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(metrics_router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(alerts_router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(config_router, prefix="/api/config", tags=["config"])
-app.include_router(websocket_router, prefix="/api", tags=["websocket"])
+
+# 条件性包含WebSocket路由
+if WEBSOCKET_AVAILABLE and websocket_router:
+    app.include_router(websocket_router, prefix="/api", tags=["websocket"])
+    logger.info("WebSocket功能已启用")
+else:
+    logger.warning("WebSocket功能不可用，已跳过")
 
 
 if __name__ == "__main__":

@@ -117,15 +117,36 @@ export function LineChart({
 }
 
 // 预设的折线图组件
-export function SOVTrendChart({ data, className }: { data: LineChartDataPoint[]; className?: string }) {
+export interface SOVTrendChartProps {
+  data: LineChartDataPoint[];
+  lines?: {
+    dataKey: string;
+    name: string;
+    color: string;
+  }[];
+  title?: string;
+  height?: number;
+  className?: string;
+}
+
+export function SOVTrendChart({ 
+  data, 
+  lines, 
+  title = "声量占有率趋势", 
+  height,
+  className 
+}: SOVTrendChartProps) {
+  const defaultLines = [
+    { dataKey: 'sov', name: '声量占有率', color: '#3b82f6' },
+    { dataKey: 'target', name: '目标值', color: '#ef4444' },
+  ];
+
   return (
     <LineChart
       data={data}
-      lines={[
-        { dataKey: 'sov', name: '声量占有率', color: '#3b82f6' },
-        { dataKey: 'target', name: '目标值', color: '#ef4444' },
-      ]}
-      title="声量占有率趋势"
+      lines={lines || defaultLines}
+      title={title}
+      height={height}
       xAxisLabel="日期"
       yAxisLabel="百分比 (%)"
       className={className}
@@ -133,16 +154,37 @@ export function SOVTrendChart({ data, className }: { data: LineChartDataPoint[];
   );
 }
 
-export function SentimentTrendChart({ data, className }: { data: LineChartDataPoint[]; className?: string }) {
+export interface SentimentTrendChartProps {
+  data: LineChartDataPoint[];
+  lines?: {
+    dataKey: string;
+    name: string;
+    color: string;
+  }[];
+  title?: string;
+  height?: number;
+  className?: string;
+}
+
+export function SentimentTrendChart({ 
+  data, 
+  lines, 
+  title = "情感趋势分析", 
+  height,
+  className 
+}: SentimentTrendChartProps) {
+  const defaultLines = [
+    { dataKey: 'positive', name: '正面情感', color: '#10b981' },
+    { dataKey: 'neutral', name: '中性情感', color: '#6b7280' },
+    { dataKey: 'negative', name: '负面情感', color: '#ef4444' },
+  ];
+
   return (
     <LineChart
       data={data}
-      lines={[
-        { dataKey: 'positive', name: '正面情感', color: '#10b981' },
-        { dataKey: 'neutral', name: '中性情感', color: '#6b7280' },
-        { dataKey: 'negative', name: '负面情感', color: '#ef4444' },
-      ]}
-      title="情感趋势分析"
+      lines={lines || defaultLines}
+      title={title}
+      height={height}
       xAxisLabel="日期"
       yAxisLabel="情感分值"
       className={className}

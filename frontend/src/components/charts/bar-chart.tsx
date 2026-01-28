@@ -122,15 +122,36 @@ export function BarChart({
 }
 
 // 预设的柱状图组件
-export function KeywordPerformanceChart({ data, className }: { data: BarChartDataPoint[]; className?: string }) {
+export interface KeywordPerformanceChartProps {
+  data: BarChartDataPoint[];
+  bars?: {
+    dataKey: string;
+    name: string;
+    color: string;
+  }[];
+  title?: string;
+  height?: number;
+  className?: string;
+}
+
+export function KeywordPerformanceChart({ 
+  data, 
+  bars, 
+  title = "关键词表现分析", 
+  height,
+  className 
+}: KeywordPerformanceChartProps) {
+  const defaultBars = [
+    { dataKey: 'mentions', name: '提及次数', color: '#3b82f6' },
+    { dataKey: 'sentiment', name: '情感分值', color: '#10b981' },
+  ];
+
   return (
     <BarChart
       data={data}
-      bars={[
-        { dataKey: 'mentions', name: '提及次数', color: '#3b82f6' },
-        { dataKey: 'sentiment', name: '情感分值', color: '#10b981' },
-      ]}
-      title="关键词表现分析"
+      bars={bars || defaultBars}
+      title={title}
+      height={height}
       xAxisLabel="关键词"
       yAxisLabel="数值"
       layout="vertical"
@@ -139,16 +160,37 @@ export function KeywordPerformanceChart({ data, className }: { data: BarChartDat
   );
 }
 
-export function CompetitorComparisonChart({ data, className }: { data: BarChartDataPoint[]; className?: string }) {
+export interface CompetitorComparisonChartProps {
+  data: BarChartDataPoint[];
+  bars?: {
+    dataKey: string;
+    name: string;
+    color: string;
+  }[];
+  title?: string;
+  height?: number;
+  className?: string;
+}
+
+export function CompetitorComparisonChart({ 
+  data, 
+  bars, 
+  title = "竞品对比分析", 
+  height,
+  className 
+}: CompetitorComparisonChartProps) {
+  const defaultBars = [
+    { dataKey: 'ourBrand', name: '我们的品牌', color: '#3b82f6' },
+    { dataKey: 'competitor1', name: '竞品A', color: '#ef4444' },
+    { dataKey: 'competitor2', name: '竞品B', color: '#f59e0b' },
+  ];
+
   return (
     <BarChart
       data={data}
-      bars={[
-        { dataKey: 'ourBrand', name: '我们的品牌', color: '#3b82f6' },
-        { dataKey: 'competitor1', name: '竞品A', color: '#ef4444' },
-        { dataKey: 'competitor2', name: '竞品B', color: '#f59e0b' },
-      ]}
-      title="竞品对比分析"
+      bars={bars || defaultBars}
+      title={title}
+      height={height}
       xAxisLabel="指标"
       yAxisLabel="分值"
       layout="vertical"
