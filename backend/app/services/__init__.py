@@ -6,13 +6,7 @@ from app.services.scheduler import (
     init_redis,
     close_redis,
     trigger_task_run,
-    TaskScheduler,
     schedule_task,
-)
-from app.services.executor import (
-    ModelExecutor,
-    execute_task_run,
-    calculate_metrics,
 )
 from app.services.calculator import (
     calculate_sov,
@@ -37,12 +31,7 @@ __all__ = [
     "init_redis",
     "close_redis",
     "trigger_task_run",
-    "TaskScheduler",
     "schedule_task",
-    # Executor
-    "ModelExecutor",
-    "execute_task_run",
-    "calculate_metrics",
     # Calculator
     "calculate_sov",
     "calculate_accuracy_score",
