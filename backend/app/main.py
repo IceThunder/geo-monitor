@@ -18,11 +18,14 @@ from app.services.scheduler import init_redis, close_redis
 from app.api import tasks_router, metrics_router, alerts_router, config_router
 
 # Configure logging
+if settings.LOG_FORMAT == "json":
+    log_format = '{"time": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}'
+else:
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
-    format=settings.LOG_FORMAT == "json" 
-        ? '{"time": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}'
-        : "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format=log_format,
 )
 logger = logging.getLogger(__name__)
 
