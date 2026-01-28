@@ -14,6 +14,8 @@ class TaskModelCreate(BaseModel):
     """任务-模型关联创建模式"""
     model_id: str = Field(..., description="模型ID，如 openai/gpt-4o")
     priority: int = Field(default=10, ge=1, le=100)
+    
+    model_config = ConfigDict(protected_namespaces=())
 
 
 class TaskKeywordCreate(BaseModel):
