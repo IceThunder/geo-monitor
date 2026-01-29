@@ -4,7 +4,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const API_BASE = `${API_URL}/api/v1`;
+const API_BASE = `${API_URL}/api`;
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
