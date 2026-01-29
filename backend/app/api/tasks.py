@@ -30,7 +30,7 @@ import re
 from datetime import datetime
 from app.services.scheduler import trigger_task_run
 
-router = APIRouter(prefix="/tasks", tags=["Tasks"])
+router = APIRouter(tags=["Tasks"])
 
 
 @router.get("", response_model=TaskListResponse)

@@ -19,7 +19,7 @@ from app.models.schemas import (
 )
 from app.core.security import get_current_tenant_id
 
-router = APIRouter(prefix="/metrics", tags=["Metrics"])
+router = APIRouter(tags=["Metrics"])
 
 
 @router.get("/sov")

@@ -38,7 +38,7 @@ from app.models.schemas import (
     SuccessResponse
 )
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(tags=["Authentication"])
 
 
 @router.post("/login", response_model=TokenResponse)

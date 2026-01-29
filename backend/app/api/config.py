@@ -15,7 +15,7 @@ from app.models.schemas import (
 from app.core.security import get_current_tenant_id
 from app.core.config import settings
 
-router = APIRouter(prefix="/config", tags=["Configuration"])
+router = APIRouter(tags=["Configuration"])
 
 
 # Simple encoding (not encryption - for development only)

@@ -20,7 +20,7 @@ from app.models.schemas import (
 from app.core.security import get_current_tenant_id
 from app.services.notifier import test_webhook
 
-router = APIRouter(prefix="/alerts", tags=["Alerts"])
+router = APIRouter(tags=["Alerts"])
 
 
 @router.get("", response_model=AlertListResponse)
