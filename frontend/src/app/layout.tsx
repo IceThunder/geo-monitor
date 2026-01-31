@@ -1,9 +1,10 @@
 /**
- * Root Layout
+ * Root Layout - Google Style
  */
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { GoogleLayout } from '@/components/layout/google-layout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,7 +21,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className={inter.className}>
-        {children}
+        <GoogleLayout>
+          {children}
+        </GoogleLayout>
       </body>
     </html>
   );
