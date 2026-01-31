@@ -14,10 +14,10 @@ from app.models.database import SessionLocal
 redis_client: Optional[redis.Redis] = None
 
 
-def get_redis() -> redis.Redis:
+def get_redis() -> Optional[redis.Redis]:
     """Get Redis client."""
     global redis_client
-    if redis_client is None:
+    if redis_client is None and hasattr(settings, 'UPSTASH_REDIS_REST_URL') and settings.UPSTASH_REDIS_REST_URL:
         # Parse URL: https://handy-thrush-8862.upstash.io -> handy-thrush-8862.upstash.io:443
         url = settings.UPSTASH_REDIS_REST_URL
         host = url.replace("https://", "").replace("http://", "").split("/")[0]
@@ -33,7 +33,11 @@ def get_redis() -> redis.Redis:
 def init_redis():
     """Initialize Redis connection."""
     global redis_client
-    redis_client = get_redis()
+    if hasattr(settings, 'UPSTASH_REDIS_REST_URL') and settings.UPSTASH_REDIS_REST_URL:
+        redis_client = get_redis()
+    else:
+        # Skip Redis in development mode
+        redis_client = None
 
 
 def close_redis():
@@ -47,7 +51,11 @@ def close_redis():
 def trigger_task_run(run_id: uuid.UUID):
     """Trigger a task run by adding it to the Redis queue."""
     r = get_redis()
-    r.lpush("task_queue", str(run_id))
+    if r:
+        r.lpush("task_queue", str(run_id))
+    else:
+        # In development mode without Redis, just log the task
+        print(f"Task run triggered (no Redis): {run_id}")
     print(f"Task run {run_id} queued for execution")
 
 

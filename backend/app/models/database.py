@@ -43,11 +43,13 @@ def close_db():
     engine.dispose()
 
 
-# Set statement timeout for pgbouncer compatibility
+# Set session variables based on database type
 @event.listens_for(engine, "connect")
 def set_session_variables(dbapi_connection, connection_record):
-    """Set session variables for better pgbouncer compatibility."""
-    cursor = dbapi_connection.cursor()
-    # Set statement timeout to prevent long-running queries
-    cursor.execute("SET statement_timeout = '30s'")
-    cursor.close()
+    """Set session variables based on database type."""
+    if settings.get_database_url().startswith("postgresql"):
+        # PostgreSQL/Supabase specific settings
+        cursor = dbapi_connection.cursor()
+        cursor.execute("SET statement_timeout = '30s'")
+        cursor.close()
+    # SQLite doesn't need special session variables

@@ -5,9 +5,19 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import String, Text, Boolean, Integer, Numeric, ForeignKey, DateTime, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.database import Base
+from app.core.config import settings
+
+# Use appropriate UUID type based on database
+def get_uuid_column():
+    """Get UUID column type based on database URL."""
+    if settings.get_database_url().startswith("postgresql"):
+        return PostgresUUID(as_uuid=True)
+    else:
+        # For SQLite, use String to store UUID as text
+        return String(36)
 
 # ============================================================================
 # Monitor Tasks
@@ -18,12 +28,12 @@ class MonitorTask(Base):
     __tablename__ = "monitor_tasks"
     
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         primary_key=True, 
         default=uuid.uuid4
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("tenant_configs.tenant_id", ondelete="CASCADE"),
         nullable=False
     )
@@ -32,7 +42,7 @@ class MonitorTask(Base):
     schedule_cron: Mapped[str] = mapped_column(String(100), default="0 0 * * *")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     prompt_template_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -69,7 +79,7 @@ class TaskModel(Base):
     __tablename__ = "task_models"
     
     task_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("monitor_tasks.id", ondelete="CASCADE"),
         primary_key=True
     )
@@ -85,7 +95,7 @@ class TaskKeyword(Base):
     __tablename__ = "task_keywords"
     
     task_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("monitor_tasks.id", ondelete="CASCADE"),
         primary_key=True
     )
@@ -105,12 +115,12 @@ class TaskRun(Base):
     __tablename__ = "task_runs"
     
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         primary_key=True, 
         default=uuid.uuid4
     )
     task_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("monitor_tasks.id", ondelete="CASCADE"),
         nullable=False
     )
@@ -156,12 +166,12 @@ class ModelOutput(Base):
     __tablename__ = "model_outputs"
     
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         primary_key=True, 
         default=uuid.uuid4
     )
     run_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("task_runs.id", ondelete="CASCADE"),
         nullable=False
     )
@@ -190,12 +200,12 @@ class MetricsSnapshot(Base):
     __tablename__ = "metrics_snapshot"
     
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         primary_key=True, 
         default=uuid.uuid4
     )
     run_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("task_runs.id", ondelete="CASCADE"),
         nullable=False
     )
@@ -240,7 +250,7 @@ class User(Base):
     __tablename__ = "users"
     
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         primary_key=True, 
         default=uuid.uuid4
     )
@@ -272,17 +282,17 @@ class TenantMember(Base):
     __tablename__ = "tenant_members"
     
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         primary_key=True, 
         default=uuid.uuid4
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("tenant_configs.tenant_id", ondelete="CASCADE"),
         nullable=False
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False
     )
@@ -320,12 +330,12 @@ class TenantConfig(Base):
     __tablename__ = "tenant_configs"
     
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         primary_key=True, 
         default=uuid.uuid4
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         unique=True, 
         nullable=False
     )
@@ -369,16 +379,16 @@ class AlertRecord(Base):
     __tablename__ = "alert_records"
     
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         primary_key=True, 
         default=uuid.uuid4
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         nullable=False
     )
     task_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
+        get_uuid_column(), 
         ForeignKey("monitor_tasks.id", ondelete="CASCADE"),
         nullable=True
     )
