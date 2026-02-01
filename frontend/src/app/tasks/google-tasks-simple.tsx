@@ -49,16 +49,6 @@ const mockTasks = [
     lastRun: '从未运行',
     nextRun: '待定',
   },
-  {
-    id: '4',
-    name: '错误测试任务',
-    description: '用于测试错误处理的任务',
-    status: 'failed' as const,
-    progress: 25,
-    accuracy: 0,
-    lastRun: '2小时前',
-    nextRun: '重试中',
-  },
 ];
 
 export default function GoogleTasksSimple() {
@@ -99,7 +89,7 @@ export default function GoogleTasksSimple() {
     total: tasks.length,
     running: tasks.filter(t => t.status === 'running').length,
     completed: tasks.filter(t => t.status === 'completed').length,
-    failed: tasks.filter(t => t.status === 'failed').length,
+    failed: 0, // 当前没有failed状态的任务
     avgAccuracy: tasks.reduce((sum, t) => sum + t.accuracy, 0) / tasks.length,
   };
 
