@@ -49,6 +49,16 @@ const mockTasks = [
     lastRun: '从未运行',
     nextRun: '待定',
   },
+  {
+    id: '4',
+    name: '错误测试任务',
+    description: '用于测试错误处理的任务',
+    status: 'failed' as const,
+    progress: 25,
+    accuracy: 0,
+    lastRun: '2小时前',
+    nextRun: '重试中',
+  },
 ];
 
 export default function GoogleTasksSimple() {
