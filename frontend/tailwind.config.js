@@ -10,7 +10,7 @@ module.exports = {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  mode: 'jit',
+  purge: false,
   safelist: [
     // 背景色
     'bg-white', 'bg-gray-50', 'bg-gray-100', 'bg-gray-800', 'bg-gray-900',
