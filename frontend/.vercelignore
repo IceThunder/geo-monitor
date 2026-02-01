@@ -1,0 +1,4 @@
+# Force rebuild by changing build cache
+# This file forces Vercel to rebuild from scratch
+.next/
+node_modules/
