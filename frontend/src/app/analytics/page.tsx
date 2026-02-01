@@ -10,15 +10,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  SOVTrendChart,
-  SentimentTrendChart,
-  KeywordPerformanceChart,
-  CompetitorComparisonChart,
-  SentimentDistributionChart,
-  ChannelDistributionChart,
-  DonutChart
-} from '@/components/charts';
+// 暂时注释掉图表组件导入，避免404错误
+// import { 
+//   SOVTrendChart,
+//   SentimentTrendChart,
+//   KeywordPerformanceChart,
+//   CompetitorComparisonChart,
+//   SentimentDistributionChart,
+//   ChannelDistributionChart,
+//   DonutChart
+// } from '@/components/charts';
 import { 
   TrendingUp, 
   BarChart3, 
@@ -195,43 +196,63 @@ export default function AnalyticsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <SOVTrendChart 
-                  data={extendedSOVData}
-                  lines={[
-                    { dataKey: 'sov', name: '我们的品牌', color: '#3b82f6' },
-                    { dataKey: 'competitor1', name: '竞品A', color: '#ef4444' },
-                    { dataKey: 'competitor2', name: '竞品B', color: '#f59e0b' },
-                  ]}
-                  title=""
-                  height={350}
-                />
+                <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">声量趋势图表</p>
+                    <p className="text-sm text-gray-400">图表组件开发中...</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <SentimentTrendChart data={[
-              { name: '1月', positive: 0.6, neutral: 0.3, negative: 0.1 },
-              { name: '2月', positive: 0.65, neutral: 0.25, negative: 0.1 },
-              { name: '3月', positive: 0.7, neutral: 0.2, negative: 0.1 },
-              { name: '4月', positive: 0.68, neutral: 0.22, negative: 0.1 },
-              { name: '5月', positive: 0.72, neutral: 0.18, negative: 0.1 },
-              { name: '6月', positive: 0.75, neutral: 0.15, negative: 0.1 },
-            ]} />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <PieChart className="h-5 w-5 mr-2" />
+                  情感趋势分析
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <PieChart className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">情感趋势图表</p>
+                    <p className="text-sm text-gray-400">图表组件开发中...</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <SentimentDistributionChart data={[
-              { name: '正面', value: 65, color: '#10b981' },
-              { name: '中性', value: 25, color: '#6b7280' },
-              { name: '负面', value: 10, color: '#ef4444' },
-            ]} />
+            <Card>
+              <CardHeader>
+                <CardTitle>情感分布</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <PieChart className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">情感分布图表</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             
-            <ChannelDistributionChart data={[
-              { name: '微博', value: 35, color: '#3b82f6' },
-              { name: '微信', value: 28, color: '#f59e0b' },
-              { name: '抖音', value: 20, color: '#10b981' },
-              { name: '小红书', value: 12, color: '#ef4444' },
-              { name: '其他', value: 5, color: '#8b5cf6' },
-            ]} />
+            <Card>
+              <CardHeader>
+                <CardTitle>渠道分布</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <BarChart3 className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">渠道分布图表</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
@@ -276,7 +297,20 @@ export default function AnalyticsPage() {
 
         {/* 竞品对比 */}
         <TabsContent value="competitors" className="space-y-6">
-          <CompetitorComparisonChart data={competitorData} />
+          <Card>
+            <CardHeader>
+              <CardTitle>竞品对比分析</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">竞品对比图表</p>
+                  <p className="text-sm text-gray-400">图表组件开发中...</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
@@ -340,7 +374,20 @@ export default function AnalyticsPage() {
 
         {/* 关键词分析 */}
         <TabsContent value="keywords" className="space-y-6">
-          <KeywordPerformanceChart data={detailedKeywordData} />
+          <Card>
+            <CardHeader>
+              <CardTitle>关键词性能分析</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">关键词性能图表</p>
+                  <p className="text-sm text-gray-400">图表组件开发中...</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           
           <Card>
             <CardHeader>
