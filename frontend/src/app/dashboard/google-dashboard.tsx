@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { GoogleLayout } from '@/components/layout/google-layout';
 import {
   TrendingUp,
   TrendingDown,
@@ -177,7 +176,6 @@ export default function GoogleDashboard() {
   };
 
   return (
-    <GoogleLayout>
       <div className="space-y-6">
         {/* 页面头部操作栏 */}
         <div className="flex items-center justify-between">
@@ -502,6 +500,5 @@ export default function GoogleDashboard() {
           </div>
         </div>
       </div>
-    </GoogleLayout>
   );
 }

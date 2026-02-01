@@ -3,8 +3,8 @@
  */
 'use client';
 
-import GoogleTasks from './google-tasks';
+import GoogleTasksSimple from './google-tasks-simple';
 
 export default function TasksPage() {
-  return <GoogleTasks />;
+  return <GoogleTasksSimple />;
 }
