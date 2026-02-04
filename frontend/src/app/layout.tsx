@@ -4,6 +4,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { AuthProvider } from '@/components/auth/auth-provider';
+import { AuthGuard } from '@/components/auth/auth-guard';
 import { GoogleLayout } from '@/components/layout/google-layout';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -21,9 +23,13 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className={inter.className}>
-        <GoogleLayout>
-          {children}
-        </GoogleLayout>
+        <AuthProvider>
+          <AuthGuard>
+            <GoogleLayout>
+              {children}
+            </GoogleLayout>
+          </AuthGuard>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -15,7 +15,11 @@ from app.core.config import settings
 from app.core.exceptions import setup_exception_handlers
 from app.models.database import init_db, close_db
 from app.services.scheduler import init_redis, close_redis
-from app.api import auth_router, tasks_router, metrics_router, alerts_router, config_router
+from app.api import tasks_router, metrics_router, alerts_router, config_router
+from app.api.auth_routes import router as auth_router
+from app.api.protected_tasks import router as protected_tasks_router
+from app.api.protected_metrics import router as protected_metrics_router
+from app.api.user_management import router as user_management_router
 try:
     from app.api import websocket_router
     WEBSOCKET_AVAILABLE = True
@@ -132,7 +136,10 @@ def debug_env():
 
 
 # Include routers
-app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
+app.include_router(auth_router, prefix="/api", tags=["authentication"])
+app.include_router(protected_tasks_router, prefix="/api", tags=["protected-tasks"])
+app.include_router(protected_metrics_router, prefix="/api", tags=["protected-metrics"])
+app.include_router(user_management_router, prefix="/api", tags=["user-management"])
 app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(metrics_router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(alerts_router, prefix="/api/alerts", tags=["alerts"])

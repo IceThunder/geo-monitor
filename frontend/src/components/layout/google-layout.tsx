@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/components/auth/auth-provider';
 import { cn } from '@/lib/utils';
 import {
   BarChart3,
@@ -64,14 +65,18 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
   const [notifications, setNotifications] = useState(3);
   const [isDark, setIsDark] = useState(false);
   const pathname = usePathname();
+  const { user, logout } = useAuth();
 
-  // 模拟用户数据
-  const user = {
-    name: '张三',
-    email: 'zhangsan@example.com',
-    avatar: '',
-    role: '管理员',
-  };
+  // 如果是认证页面，不显示布局
+  const isAuthPage = pathname.startsWith('/auth');
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
+
+  // 如果用户未登录，不显示布局
+  if (!user) {
+    return <>{children}</>;
+  }
 
   // 获取当前页面标题
   const getCurrentPageTitle = () => {
@@ -222,7 +227,7 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
                   帮助
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   退出登录
                 </DropdownMenuItem>

@@ -17,13 +17,8 @@ from app.models.schemas import (
     TaskListResponse,
     TaskTriggerResponse,
 )
-from app.core.security import (
-    get_current_tenant_id, 
-    get_current_user_membership, 
-    check_permission, 
-    Permission
-)
-from app.models.entities import TenantMember
+from app.middleware.auth import get_current_user, require_minimum_role
+from app.models.user_entities import User, UserTenant
 from app.core.exceptions import NotFoundException, ValidationException
 from croniter import croniter
 import re
@@ -39,17 +34,13 @@ def list_tasks(
     limit: int = Query(default=20, ge=1, le=100),
     is_active: Optional[bool] = None,
     search: Optional[str] = None,
-    tenant_id: str = Depends(get_current_tenant_id),
-    membership: TenantMember = Depends(get_current_user_membership),
+    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List all monitor tasks for the current tenant."""
-    # Check read permission
-    if not check_permission(membership, Permission.READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions to view tasks"
-        )
+    user, user_tenant = current_user_data
+    tenant_id = str(user_tenant.tenant_id)
+    
     # Build query
     query = select(MonitorTask).where(MonitorTask.tenant_id == tenant_id)
     
