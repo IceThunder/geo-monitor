@@ -7,12 +7,24 @@ frontend/.next/
 frontend/out/
 frontend/build/
 
+# Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
 # Development files
 *.log
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.test
 
 # IDE files
 .vscode/
@@ -23,3 +35,20 @@ frontend/build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Docs (do not commit)
+docs/
+
+# Playwright / E2E tests (do not commit)
+frontend/test-results/
+frontend/tests/
+frontend/playwright-production.config.ts
+
+# Local manual test files (do not commit)
+test_*.html
+test_*.js
+
+# Backend local test scripts (do not commit)
+backend/minimal_test.py
+backend/simple_test.py
+backend/test_main.py
