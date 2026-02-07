@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
 from app.models.user_entities import (
-    User, Tenant, UserTenant, UserSession, 
-    EmailVerification, PasswordReset, TenantConfig
+    User, Tenant, UserTenant, UserSession,
+    EmailVerification, PasswordReset, UserTenantConfig
 )
 from app.schemas.user_schemas import UserRegister, UserLogin, TokenData
 from app.core.config import settings
@@ -140,7 +140,7 @@ class AuthService:
         self.db.add(user_tenant)
         
         # 创建租户配置
-        tenant_config = TenantConfig(
+        tenant_config = UserTenantConfig(
             tenant_id=tenant.id,
             alert_threshold_accuracy=6,
             alert_threshold_sentiment=50

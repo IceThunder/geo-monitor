@@ -56,7 +56,7 @@ class Tenant(Base):
 
     # 关系
     user_tenants = relationship("UserTenant", back_populates="tenant", cascade="all, delete-orphan")
-    config = relationship("TenantConfig", back_populates="tenant", uselist=False, cascade="all, delete-orphan")
+    config = relationship("UserTenantConfig", back_populates="tenant", uselist=False, cascade="all, delete-orphan")
     invitations = relationship("UserInvitation", back_populates="tenant", cascade="all, delete-orphan")
 
 
@@ -171,8 +171,8 @@ class UserInvitation(Base):
     inviter = relationship("User", back_populates="sent_invitations")
 
 
-class TenantConfig(Base):
-    """租户配置表"""
+class UserTenantConfig(Base):
+    """租户配置表（认证模块）"""
     __tablename__ = "tenant_configs"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
