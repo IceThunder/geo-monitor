@@ -328,7 +328,7 @@ function GoogleLayoutContent({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.avatar} alt={user?.name} />
+                    <AvatarImage alt={user?.name} />
                     <AvatarFallback className="bg-blue-600 text-white">
                       {user?.name.charAt(0)}
                     </AvatarFallback>
