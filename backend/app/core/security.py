@@ -13,7 +13,8 @@ import uuid
 
 from app.core.config import settings
 from app.models.database import get_db
-from app.models.entities import TenantConfig, User, TenantMember
+from app.models.entities import TenantConfig, TenantMember
+from app.models.user_entities import User
 from app.models.schemas import TokenResponse, UserResponse
 
 # Password hashing

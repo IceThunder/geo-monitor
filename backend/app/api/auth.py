@@ -22,7 +22,8 @@ from app.core.security import (
     check_permission
 )
 from app.models.database import get_db
-from app.models.entities import User, TenantConfig, TenantMember
+from app.models.entities import TenantConfig, TenantMember
+from app.models.user_entities import User
 from app.models.schemas import (
     LoginRequest,
     TokenResponse,
