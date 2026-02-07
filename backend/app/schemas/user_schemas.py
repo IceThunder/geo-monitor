@@ -140,7 +140,7 @@ class TenantSwitch(BaseModel):
 # 邀请用户
 class UserInvite(BaseModel):
     email: EmailStr
-    role: str = Field(..., regex="^(owner|admin|member|viewer)$")
+    role: str = Field(..., pattern="^(owner|admin|member|viewer)$")
 
 
 # 邀请响应
