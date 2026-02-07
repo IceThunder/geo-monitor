@@ -40,7 +40,7 @@ apiClient.interceptors.response.use(
       // Token expired or invalid
       if (typeof window !== 'undefined') {
         localStorage.removeItem('access_token');
-        window.location.href = '/login';
+        window.location.href = '/auth/login';
       }
     }
     return Promise.reject(error);

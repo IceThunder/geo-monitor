@@ -330,7 +330,7 @@ function GoogleLayoutContent({ children }: { children: React.ReactNode }) {
                   <Avatar className="h-8 w-8">
                     <AvatarImage alt={user?.name} />
                     <AvatarFallback className="bg-blue-600 text-white">
-                      {user?.name.charAt(0)}
+                      {user?.name?.[0] || '?'}
                     </AvatarFallback>
                   </Avatar>
                 </Button>

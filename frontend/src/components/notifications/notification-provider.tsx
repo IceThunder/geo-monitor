@@ -4,7 +4,7 @@
  */
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { createWebSocketClient, WebSocketClient, MESSAGE_TYPES, WebSocketMessage } from '@/lib/websocket';
 import { Toast, ToastProvider, ToastViewport } from '@/components/ui/toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -63,7 +63,7 @@ export function NotificationProvider({
   wsUrl = 'ws://localhost:8000/api/ws' 
 }: NotificationProviderProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [wsClient, setWsClient] = useState<WebSocketClient | null>(null);
+  const wsClientRef = useRef<WebSocketClient | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
@@ -109,8 +109,8 @@ export function NotificationProvider({
   }, []);
 
   const connect = useCallback(async (token?: string) => {
-    if (wsClient) {
-      wsClient.disconnect();
+    if (wsClientRef.current) {
+      wsClientRef.current.disconnect();
     }
 
     const client = createWebSocketClient({
@@ -142,10 +142,10 @@ export function NotificationProvider({
     client.on(MESSAGE_TYPES.ALERT, (message: WebSocketMessage) => {
       const { alert } = message;
       addNotification({
-        type: alert.severity === 'high' || alert.severity === 'critical' ? 'error' : 'warning',
+        type: alert?.severity === 'high' || alert?.severity === 'critical' ? 'error' : 'warning',
         title: '告警通知',
-        message: alert.message || alert.title || '收到新的告警',
-        persistent: alert.severity === 'critical',
+        message: alert?.message || alert?.title || '收到新的告警',
+        persistent: alert?.severity === 'critical',
         data: alert,
       });
     });
@@ -179,43 +179,33 @@ export function NotificationProvider({
 
     client.onError((error) => {
       console.error('WebSocket连接错误:', error);
-      addNotification({
-        type: 'error',
-        title: '连接错误',
-        message: '实时连接出现问题，正在尝试重连...',
-      });
     });
 
-    setWsClient(client);
+    wsClientRef.current = client;
 
     try {
       await client.connect();
-      
+
       // 订阅相关主题
       client.subscribe([
         'task_updates',
-        'metrics_updates', 
+        'metrics_updates',
         'alerts',
         'system_messages'
       ]);
 
     } catch (error) {
       console.error('WebSocket连接失败:', error);
-      addNotification({
-        type: 'error',
-        title: '连接失败',
-        message: '无法连接到实时监控系统',
-      });
     }
   }, [wsUrl, addNotification]);
 
   const disconnect = useCallback(() => {
-    if (wsClient) {
-      wsClient.disconnect();
-      setWsClient(null);
+    if (wsClientRef.current) {
+      wsClientRef.current.disconnect();
+      wsClientRef.current = null;
       setIsConnected(false);
     }
-  }, [wsClient]);
+  }, []);
 
   // 计算未读通知数量
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -223,11 +213,11 @@ export function NotificationProvider({
   // 清理函数
   useEffect(() => {
     return () => {
-      if (wsClient) {
-        wsClient.disconnect();
+      if (wsClientRef.current) {
+        wsClientRef.current.disconnect();
       }
     };
-  }, [wsClient]);
+  }, []);
 
   const contextValue: NotificationContextType = {
     notifications,
