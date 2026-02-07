@@ -2,113 +2,135 @@
  * Metrics API client.
  */
 import apiClient from './client';
-import { DateRangeParams } from './types';
 
 export interface SOVDataPoint {
   date: string;
-  sov: number;
+  avg_sov: number;
+  count: number;
 }
 
 export interface SOVTrendResponse {
-  keyword: string;
-  model: string;
   data: SOVDataPoint[];
+  period: {
+    start_date: string;
+    end_date: string;
+    days: number;
+  };
 }
 
 export interface AccuracyDataPoint {
   date: string;
   avg_accuracy: number;
-  min_accuracy: number;
-  max_accuracy: number;
+  count: number;
 }
 
 export interface AccuracyTrendResponse {
-  task_id?: string;
   data: AccuracyDataPoint[];
+  period: {
+    start_date: string;
+    end_date: string;
+    days: number;
+  };
 }
 
-export interface ModelComparisonData {
-  sov: number;
-  accuracy: number;
-  sentiment: number;
+export interface ModelComparisonItem {
+  model_id: string;
+  avg_sov: number;
+  avg_accuracy: number;
+  count: number;
 }
 
 export interface ModelComparisonResponse {
-  keyword: string;
-  models: Record<string, ModelComparisonData>;
+  data: ModelComparisonItem[];
+  period: {
+    start_date: string;
+    end_date: string;
+    days: number;
+  };
 }
 
-export interface DashboardOverviewResponse {
+export interface KeywordPerformanceItem {
+  keyword: string;
+  avg_sov: number;
+  avg_accuracy: number;
+  count: number;
+}
+
+export interface KeywordPerformanceResponse {
+  data: KeywordPerformanceItem[];
+  period: {
+    start_date: string;
+    end_date: string;
+    days: number;
+  };
+  limit: number;
+}
+
+export interface MetricsSummaryResponse {
   total_tasks: number;
   active_tasks: number;
-  sov_trend: SOVDataPoint[];
-  accuracy_trend: AccuracyDataPoint[];
-  top_brands: Array<{ brand: string; count: number }>;
-  recent_alerts: Array<{ id: string; message: string; type: string }>;
-  total_cost_usd: number;
-  total_token_usage: number;
-}
-
-export interface ReportExportParams {
-  task_id?: string;
-  keyword?: string;
-  format: 'csv' | 'xlsx' | 'pdf';
-  start_date: string;
-  end_date: string;
-  metrics: string[];
+  recent_runs: number;
+  avg_sov: number;
+  avg_accuracy: number;
+  unread_alerts: number;
+  period: {
+    start_date: string;
+    end_date: string;
+    days: number;
+  };
 }
 
 export const metricApi = {
   /**
-   * Get dashboard overview data
+   * Get metrics summary (dashboard overview)
    */
-  getDashboardOverview: async (params: DateRangeParams): Promise<DashboardOverviewResponse> => {
-    const response = await apiClient.get('/metrics/dashboard/overview', { params });
+  getSummary: async (): Promise<MetricsSummaryResponse> => {
+    const response = await apiClient.get('/metrics/summary');
     return response.data;
   },
 
   /**
    * Get SOV trend data
    */
-  getSOVTrend: async (params: {
-    keyword: string;
+  getSOVTrend: async (params?: {
+    days?: number;
+    keyword?: string;
     model?: string;
-    period?: string;
   }): Promise<SOVTrendResponse> => {
-    const response = await apiClient.get('/metrics/sov', { params });
+    const response = await apiClient.get('/metrics/sov-trend', { params });
     return response.data;
   },
 
   /**
    * Get accuracy trend data
    */
-  getAccuracyTrend: async (params: {
-    task_id?: string;
-    period?: string;
+  getAccuracyTrend: async (params?: {
+    days?: number;
+    keyword?: string;
+    model?: string;
   }): Promise<AccuracyTrendResponse> => {
-    const response = await apiClient.get('/metrics/accuracy', { params });
+    const response = await apiClient.get('/metrics/accuracy-trend', { params });
     return response.data;
   },
 
   /**
    * Get model comparison data
    */
-  getModelComparison: async (params: {
-    keyword: string;
-    period?: string;
+  getModelComparison: async (params?: {
+    days?: number;
   }): Promise<ModelComparisonResponse> => {
-    const response = await apiClient.get('/metrics/comparison', { params });
+    const response = await apiClient.get('/metrics/model-comparison', { params });
     return response.data;
   },
 
   /**
-   * Export report
+   * Get keyword performance data
    */
-  exportReport: async (params: ReportExportParams): Promise<Blob> => {
-    const response = await apiClient.get('/reports/export', {
-      params,
-      responseType: 'blob',
-    });
+  getKeywordPerformance: async (params?: {
+    days?: number;
+    limit?: number;
+  }): Promise<KeywordPerformanceResponse> => {
+    const response = await apiClient.get('/metrics/keyword-performance', { params });
     return response.data;
   },
 };

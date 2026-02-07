@@ -508,8 +508,9 @@ async def execute_task_run(run_id: uuid.UUID):
                 await session.commit()
                 return
             
-            # Initialize enhanced executor
+            # Initialize enhanced executor and accuracy evaluator
             executor = ModelExecutor(api_key, tenant_config)
+            evaluator = AccuracyEvaluator(api_key)
             
             # Execute for each keyword and model combination
             total_tokens = 0
@@ -536,15 +537,26 @@ async def execute_task_run(run_id: uuid.UUID):
                         
                         if output.status == "completed":
                             successful_executions += 1
-                            
+
                             # Create metrics snapshot if successful
                             if output.raw_response:
                                 try:
+                                    # Run LLM accuracy evaluation
+                                    evaluator_result = None
+                                    try:
+                                        response_text = json.dumps(output.raw_response)
+                                        evaluator_result = await evaluator.evaluate(keyword, response_text)
+                                        if evaluator_result:
+                                            logger.info(f"Accuracy eval for {keyword}/{model_id}: score={evaluator_result.get('accuracy_score')}")
+                                    except Exception as eval_err:
+                                        logger.warning(f"Accuracy evaluation failed for {keyword}/{model_id}: {eval_err}")
+
                                     metrics = await calculate_metrics(
                                         output.raw_response,
                                         keyword,
                                         model_id,
                                         run_id,
+                                        evaluator_result=evaluator_result,
                                     )
                                     session.add(metrics)
                                 except Exception as metrics_error:
@@ -611,11 +623,71 @@ async def execute_task_run(run_id: uuid.UUID):
                 logger.error(f"Failed to update task run status: {commit_error}")
 
 
+class AccuracyEvaluator:
+    """Evaluates accuracy of model responses using a cost-efficient LLM."""
+
+    EVAL_MODEL = "openai/gpt-4o-mini"
+    EVAL_MAX_TOKENS = 200
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+
+    async def evaluate(self, keyword: str, model_response: str) -> Optional[Dict[str, Any]]:
+        """
+        Call a cost-efficient model to evaluate accuracy of a response.
+
+        Returns:
+            Dict with accuracy_score (1-10) and reasoning, or None on failure.
+        """
+        prompt = f"""You are an accuracy evaluator. Given the following question and AI model response,
+rate the accuracy of brand-related information on a scale of 1-10.
+
+Question: {keyword}
+
+Response: {model_response[:2000]}
+
+Return ONLY valid JSON: {{"accuracy_score": <1-10>, "reasoning": "<brief explanation>"}}"""
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": OPENROUTER_SITE_URL,
+            "X-Title": f"{OPENROUTER_APP_NAME} - Evaluator",
+        }
+
+        body = {
+            "model": self.EVAL_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": self.EVAL_MAX_TOKENS,
+            "temperature": 0.1,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    OPENROUTER_API_URL,
+                    headers=headers,
+                    json=body,
+                )
+                response.raise_for_status()
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                result = json.loads(content)
+
+                score = result.get("accuracy_score")
+                if isinstance(score, int) and 1 <= score <= 10:
+                    return result
+                return None
+        except Exception:
+            return None
+
+
 async def calculate_metrics(
     response_data: Dict[str, Any],
     keyword: str,
     model_id: str,
     run_id: uuid.UUID,
+    evaluator_result: Optional[Dict[str, Any]] = None,
 ) -> MetricsSnapshot:
     """
     Calculate enhanced metrics from model response.
@@ -639,12 +711,15 @@ async def calculate_metrics(
     # For single model execution, SOV is percentage of total brands mentioned
     sov_score = Decimal(str(len(brands_mentioned) / max(total_brands, 1) * 100)) if brands_mentioned else Decimal("0")
     
-    # Calculate average accuracy score
-    accuracy_scores = [
-        b.get("accuracy_score", 5) for b in brands_data 
-        if isinstance(b.get("accuracy_score"), int) and 1 <= b.get("accuracy_score") <= 10
-    ]
-    accuracy_score = int(sum(accuracy_scores) / len(accuracy_scores)) if accuracy_scores else None
+    # Calculate accuracy score — prefer LLM evaluation result if available
+    if evaluator_result and isinstance(evaluator_result.get("accuracy_score"), int):
+        accuracy_score = evaluator_result["accuracy_score"]
+    else:
+        accuracy_scores = [
+            b.get("accuracy_score", 5) for b in brands_data
+            if isinstance(b.get("accuracy_score"), int) and 1 <= b.get("accuracy_score") <= 10
+        ]
+        accuracy_score = int(sum(accuracy_scores) / len(accuracy_scores)) if accuracy_scores else None
     
     # Calculate sentiment score (-1 to 1)
     sentiment_mapping = {"Positive": 1, "Neutral": 0, "Negative": -1}

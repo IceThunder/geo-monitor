@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import apiClient from '@/lib/api/client';
 
 interface User {
   id: string;
@@ -75,20 +76,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 登录函数
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('http://127.0.0.1:8001/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || '登录失败');
-      }
-
-      const data = await response.json();
+      const response = await apiClient.post('/auth/login', { email, password });
+      const data = response.data;
       
       // 保存token和用户信息
       localStorage.setItem('access_token', data.access_token);

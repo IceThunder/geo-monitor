@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/auth-provider';
+import { NotificationProvider, NotificationCenter, useNotifications } from '@/components/notifications/notification-provider';
 import { cn } from '@/lib/utils';
+import { taskApi, SearchResult } from '@/lib/api/tasks';
 import {
   BarChart3,
   Settings,
-  Bell,
   Search,
   Menu,
   X,
@@ -59,24 +60,101 @@ const navigation: NavItem[] = [
   { name: '设置', href: '/settings', icon: Settings },
 ];
 
+// Derive WebSocket URL from the API URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const WS_URL = API_URL.replace('http', 'ws') + '/api/ws';
+
 export function GoogleLayout({ children }: GoogleLayoutProps) {
+  const pathname = usePathname();
+  const { user } = useAuth();
+
+  // Auth pages and unauthenticated users don't need the notification system
+  const isAuthPage = pathname.startsWith('/auth');
+  if (isAuthPage || !user) {
+    return <>{children}</>;
+  }
+
+  return (
+    <NotificationProvider wsUrl={WS_URL}>
+      <GoogleLayoutContent>{children}</GoogleLayoutContent>
+    </NotificationProvider>
+  );
+}
+
+/**
+ * Inner layout component that lives inside NotificationProvider,
+ * so it can use the useNotifications() hook for WebSocket auto-connect.
+ */
+function GoogleLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState(3);
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
+  const { connect, disconnect } = useNotifications();
 
-  // 如果是认证页面，不显示布局
-  const isAuthPage = pathname.startsWith('/auth');
-  if (isAuthPage) {
-    return <>{children}</>;
-  }
+  // Auto-connect WebSocket when the user is authenticated
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (token && user) {
+      connect(token);
+    }
+    return () => disconnect();
+  }, [user, connect, disconnect]);
 
-  // 如果用户未登录，不显示布局
-  if (!user) {
-    return <>{children}</>;
-  }
+  // Close search dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close search on route change
+  useEffect(() => {
+    setSearchOpen(false);
+    setSearchQuery('');
+  }, [pathname]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!value.trim()) {
+      setSearchResults(null);
+      setSearchOpen(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+        const results = await taskApi.searchGlobal(value.trim());
+        setSearchResults(results);
+        setSearchOpen(true);
+      } catch {
+        setSearchResults(null);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+  }, []);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setSearchOpen(false);
+      setSearchQuery('');
+    }
+  };
 
   // 获取当前页面标题
   const getCurrentPageTitle = () => {
@@ -88,7 +166,7 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
   const getBreadcrumbs = () => {
     const segments = pathname.split('/').filter(Boolean);
     const breadcrumbs = [{ name: '首页', href: '/' }];
-    
+
     let currentPath = '';
     segments.forEach(segment => {
       currentPath += `/${segment}`;
@@ -97,7 +175,7 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
         breadcrumbs.push({ name: navItem.name, href: currentPath });
       }
     });
-    
+
     return breadcrumbs;
   };
 
@@ -116,7 +194,7 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            
+
             <div className="flex items-center space-x-3">
               <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg">
                 <Globe className="h-5 w-5 text-white" />
@@ -133,16 +211,76 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
           </div>
 
           {/* 中间：搜索栏 */}
-          <div className="hidden md:flex flex-1 max-w-lg mx-8">
+          <div className="hidden md:flex flex-1 max-w-lg mx-8" ref={searchRef}>
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="搜索任务、关键词或报告..."
+                placeholder="搜索任务、关键词..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => { if (searchResults) setSearchOpen(true); }}
+                onKeyDown={handleSearchKeyDown}
                 className="pl-10 pr-4 py-2 w-full bg-gray-100 dark:bg-gray-700 border-0 focus:bg-white dark:focus:bg-gray-600"
               />
+
+              {/* Search dropdown */}
+              {searchOpen && searchResults && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                  {searchResults.tasks.length === 0 && searchResults.keywords.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      未找到匹配结果
+                    </div>
+                  ) : (
+                    <>
+                      {searchResults.tasks.length > 0 && (
+                        <div>
+                          <div className="px-3 py-2 text-xs font-semibold text-gray-500 bg-gray-50 dark:bg-gray-900">
+                            任务
+                          </div>
+                          {searchResults.tasks.map((t) => (
+                            <Link
+                              key={t.id}
+                              href={`/tasks/${t.id}`}
+                              className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              onClick={() => setSearchOpen(false)}
+                            >
+                              <Activity className="h-4 w-4 text-blue-500 mr-3 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{t.name}</p>
+                                {t.description && (
+                                  <p className="text-xs text-gray-500 truncate">{t.description}</p>
+                                )}
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults.keywords.length > 0 && (
+                        <div>
+                          <div className="px-3 py-2 text-xs font-semibold text-gray-500 bg-gray-50 dark:bg-gray-900">
+                            关键词
+                          </div>
+                          {searchResults.keywords.map((kw, i) => (
+                            <Link
+                              key={`${kw.task_id}-${kw.keyword}-${i}`}
+                              href={`/tasks/${kw.task_id}`}
+                              className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              onClick={() => setSearchOpen(false)}
+                            >
+                              <Search className="h-4 w-4 text-green-500 mr-3 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{kw.keyword}</p>
+                                <p className="text-xs text-gray-500 truncate">任务: {kw.task_name}</p>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -173,15 +311,8 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* 通知 */}
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="h-5 w-5" />
-              {notifications > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs bg-red-500">
-                  {notifications}
-                </Badge>
-              )}
-            </Button>
+            {/* 通知中心 */}
+            <NotificationCenter />
 
             {/* 主题切换 */}
             <Button
@@ -197,9 +328,9 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={user?.avatar} alt={user?.name} />
                     <AvatarFallback className="bg-blue-600 text-white">
-                      {user.name.charAt(0)}
+                      {user?.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -207,9 +338,9 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <div className="flex items-center justify-start gap-2 p-2">
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user.name}</p>
+                    <p className="font-medium">{user?.name}</p>
                     <p className="w-[200px] truncate text-sm text-muted-foreground">
-                      {user.email}
+                      {user?.email}
                     </p>
                   </div>
                 </div>
@@ -283,7 +414,7 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
             <div className="p-4 border-t border-gray-200 dark:border-gray-700">
               <div className="text-xs text-gray-500 dark:text-gray-400">
                 <p>版本 v1.0.0</p>
-                <p>© 2026 GEO Monitor</p>
+                <p>&copy; 2026 GEO Monitor</p>
               </div>
             </div>
           </div>
@@ -316,13 +447,13 @@ export function GoogleLayout({ children }: GoogleLayoutProps) {
                   </React.Fragment>
                 ))}
               </nav>
-              
+
               {/* 页面标题 */}
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
                   {getCurrentPageTitle()}
                 </h1>
-                
+
                 <div className="flex items-center space-x-2">
                   <Button variant="outline" size="sm">
                     <Filter className="h-4 w-4 mr-2" />

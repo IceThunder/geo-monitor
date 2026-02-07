@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
+import apiClient from '@/lib/api/client';
 
 interface RegisterFormData {
   email: string;
@@ -79,28 +80,17 @@ export default function RegisterPage() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8001/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          name: formData.name,
-          password: formData.password,
-          tenant_name: formData.tenantName || undefined
-        }),
+      await apiClient.post('/auth/register', {
+        email: formData.email,
+        name: formData.name,
+        password: formData.password,
+        tenant_name: formData.tenantName || undefined
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || '注册失败');
-      }
-
       setSuccess(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '注册失败，请重试');
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || (err instanceof Error ? err.message : '注册失败，请重试');
+      setError(message);
     } finally {
       setLoading(false);
     }

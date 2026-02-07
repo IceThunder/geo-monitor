@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 import uuid
 
 from app.core.database import get_db
-from app.models.entities import MonitorTask, TaskModel, TaskKeyword, TaskRun
+from app.models.entities import MonitorTask, TaskModel, TaskKeyword, TaskRun, MetricsSnapshot
 from app.models.schemas import (
     TaskCreate,
     TaskUpdate,
@@ -23,7 +23,7 @@ from app.core.exceptions import NotFoundException, ValidationException
 from croniter import croniter
 import re
 from datetime import datetime
-from app.services.scheduler import trigger_task_run
+from app.services.scheduler import schedule_task
 
 router = APIRouter(prefix="/tasks", tags=["Protected Tasks"])
 
@@ -60,18 +60,18 @@ async def list_tasks(
     query = query.offset(offset).limit(limit)
     query = query.options(
         selectinload(MonitorTask.models),
-        selectinload(MonitorTask.keywords)
+        selectinload(MonitorTask.keywords),
+        selectinload(MonitorTask.runs),
     )
     
     result = db.execute(query)
     tasks = result.scalars().all()
     
     return TaskListResponse(
-        items=[TaskResponse.from_orm(task) for task in tasks],
+        data=[_task_to_response(task) for task in tasks],
         total=total,
         page=page,
         limit=limit,
-        pages=(total + limit - 1) // limit
     )
 
 
@@ -87,35 +87,25 @@ async def create_task(
     tenant_id = str(user_tenant.tenant_id)
     
     # 验证cron表达式
-    if not _validate_cron_expression(task_data.schedule):
+    if not _validate_cron_expression(task_data.schedule_cron):
         raise ValidationException("无效的cron表达式")
-    
-    # 验证模型
-    if not _validate_models(task_data.models):
-        raise ValidationException("无效的模型配置")
-    
+
     # 创建任务
     task = MonitorTask(
         tenant_id=tenant_id,
         name=task_data.name,
         description=task_data.description,
-        schedule=task_data.schedule,
-        target_brand=task_data.target_brand,
-        positioning_keywords=task_data.positioning_keywords or [],
-        is_active=task_data.is_active,
-        created_by=str(user.id)
+        schedule_cron=task_data.schedule_cron,
     )
-    
+
     db.add(task)
     db.flush()  # 获取任务ID
-    
+
     # 添加模型
-    for model_data in task_data.models:
+    for model_id in task_data.models:
         task_model = TaskModel(
             task_id=task.id,
-            model_name=model_data.name,
-            provider=model_data.provider,
-            config=model_data.config or {}
+            model_id=model_id,
         )
         db.add(task_model)
     
@@ -129,8 +119,8 @@ async def create_task(
     
     db.commit()
     db.refresh(task)
-    
-    return TaskResponse.from_orm(task)
+
+    return _task_to_response(task)
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
@@ -148,16 +138,17 @@ async def get_task(
         MonitorTask.tenant_id == tenant_id
     ).options(
         selectinload(MonitorTask.models),
-        selectinload(MonitorTask.keywords)
+        selectinload(MonitorTask.keywords),
+        selectinload(MonitorTask.runs),
     )
-    
+
     result = db.execute(query)
     task = result.scalar_one_or_none()
-    
+
     if not task:
         raise NotFoundException("任务不存在")
-    
-    return TaskResponse.from_orm(task)
+
+    return _task_to_response(task)
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
@@ -184,34 +175,28 @@ async def update_task(
         raise NotFoundException("任务不存在")
     
     # 验证cron表达式（如果提供）
-    if task_data.schedule and not _validate_cron_expression(task_data.schedule):
+    if task_data.schedule_cron and not _validate_cron_expression(task_data.schedule_cron):
         raise ValidationException("无效的cron表达式")
-    
-    # 验证模型（如果提供）
-    if task_data.models and not _validate_models(task_data.models):
-        raise ValidationException("无效的模型配置")
-    
+
     # 更新任务字段
-    update_data = task_data.dict(exclude_unset=True)
+    update_data = task_data.model_dump(exclude_unset=True)
     if update_data:
         for field, value in update_data.items():
             if field not in ['models', 'keywords']:  # 这些字段需要特殊处理
                 setattr(task, field, value)
-        
+
         task.updated_at = datetime.utcnow()
-    
+
     # 更新模型（如果提供）
     if task_data.models is not None:
         # 删除现有模型
         db.execute(delete(TaskModel).where(TaskModel.task_id == task_id))
-        
+
         # 添加新模型
-        for model_data in task_data.models:
+        for model_id in task_data.models:
             task_model = TaskModel(
                 task_id=task.id,
-                model_name=model_data.name,
-                provider=model_data.provider,
-                config=model_data.config or {}
+                model_id=model_id,
             )
             db.add(task_model)
     
@@ -230,8 +215,8 @@ async def update_task(
     
     db.commit()
     db.refresh(task)
-    
-    return TaskResponse.from_orm(task)
+
+    return _task_to_response(task)
 
 
 @router.delete("/{task_id}")
@@ -290,11 +275,10 @@ async def trigger_task(
     
     # 触发任务执行
     try:
-        run_id = await trigger_task_run(task_id)
+        run_id = schedule_task(uuid.UUID(task_id))
         return TaskTriggerResponse(
-            message="任务触发成功",
             run_id=run_id,
-            task_id=task_id
+            status="pending",
         )
     except Exception as e:
         raise HTTPException(
@@ -328,28 +312,47 @@ async def get_task_runs(
     
     # 获取执行历史
     query = select(TaskRun).where(TaskRun.task_id == task_id)
-    
+
     # 获取总数
     count_query = select(func.count()).select_from(query.subquery())
     total_result = db.execute(count_query)
     total = total_result.scalar() or 0
-    
+
     # 获取分页结果
     offset = (page - 1) * limit
-    query = query.order_by(TaskRun.created_at.desc()).offset(offset).limit(limit)
-    
+    query = (
+        query.order_by(TaskRun.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .options(selectinload(TaskRun.metrics))
+    )
+
     result = db.execute(query)
     runs = result.scalars().all()
-    
+
     return {
-        "items": [
+        "data": [
             {
                 "id": str(run.id),
                 "status": run.status,
-                "started_at": run.started_at,
-                "completed_at": run.completed_at,
+                "started_at": run.started_at.isoformat() if run.started_at else None,
+                "completed_at": run.completed_at.isoformat() if run.completed_at else None,
                 "error_message": run.error_message,
-                "metrics": run.metrics
+                "token_usage": run.token_usage,
+                "cost_usd": float(run.cost_usd) if run.cost_usd else 0,
+                "metrics": [
+                    {
+                        "id": str(m.id),
+                        "model_id": m.model_id,
+                        "keyword": m.keyword,
+                        "sov_score": float(m.sov_score) if m.sov_score else None,
+                        "accuracy_score": m.accuracy_score,
+                        "sentiment_score": float(m.sentiment_score) if m.sentiment_score else None,
+                        "citation_rate": float(m.citation_rate) if m.citation_rate else None,
+                        "positioning_hit": m.positioning_hit,
+                    }
+                    for m in run.metrics
+                ],
             }
             for run in runs
         ],
@@ -360,6 +363,30 @@ async def get_task_runs(
     }
 
 
+def _task_to_response(task: MonitorTask) -> TaskResponse:
+    """Convert a MonitorTask ORM object to a TaskResponse."""
+    # Get last run info
+    last_run = None
+    if task.runs:
+        last_run = sorted(task.runs, key=lambda r: r.created_at, reverse=True)[0]
+
+    return TaskResponse(
+        id=task.id,
+        tenant_id=task.tenant_id,
+        name=task.name,
+        description=task.description,
+        schedule_cron=task.schedule_cron,
+        is_active=task.is_active,
+        prompt_template_id=task.prompt_template_id,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+        models=[m.model_id for m in task.models],
+        keywords=[k.keyword for k in task.keywords],
+        last_run_status=last_run.status if last_run else None,
+        last_run_time=last_run.completed_at or last_run.started_at if last_run else None,
+    )
+
+
 def _validate_cron_expression(cron_expr: str) -> bool:
     """验证cron表达式"""
     try:
@@ -367,19 +394,3 @@ def _validate_cron_expression(cron_expr: str) -> bool:
         return True
     except (ValueError, TypeError):
         return False
-
-
-def _validate_models(models: List) -> bool:
-    """验证模型配置"""
-    if not models:
-        return False
-    
-    valid_providers = ['openrouter', 'openai', 'anthropic']
-    
-    for model in models:
-        if not hasattr(model, 'name') or not model.name:
-            return False
-        if not hasattr(model, 'provider') or model.provider not in valid_providers:
-            return False
-    
-    return True
