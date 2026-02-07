@@ -4,7 +4,7 @@
  */
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,15 +15,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  ArrowLeft, 
-  Plus, 
-  X, 
-  Info, 
+import {
+  ArrowLeft,
+  Plus,
+  X,
+  Info,
   Save,
   Play,
-  Settings
+  Settings,
+  Loader2
 } from 'lucide-react';
+import apiClient, { handleApiError } from '@/lib/api/client';
 
 // 可用模型列表
 const availableModels = [
@@ -54,12 +56,19 @@ interface TaskFormData {
   positioningKeywords: string[];
 }
 
+// Simple toast notification
+interface Toast {
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 export default function CreateTaskPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [newKeyword, setNewKeyword] = useState('');
   const [newPositioningKeyword, setNewPositioningKeyword] = useState('');
-  
+  const [toast, setToast] = useState<Toast | null>(null);
+
   const [formData, setFormData] = useState<TaskFormData>({
     name: '',
     description: '',
@@ -71,6 +80,18 @@ export default function CreateTaskPage() {
     targetBrand: '',
     positioningKeywords: [],
   });
+
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message: string, type: Toast['type']) => {
+    setToast({ message, type });
+  };
 
   const handleInputChange = (field: keyof TaskFormData, value: any) => {
     setFormData(prev => ({
@@ -113,35 +134,87 @@ export default function CreateTaskPage() {
   const handleSubmit = async (action: 'save' | 'save_and_run') => {
     setLoading(true);
     try {
-      // TODO: 实现保存逻辑
-      console.log('Saving task:', formData, action);
-      
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 保存成功后跳转
-      router.push('/dashboard?tab=tasks');
+      // Determine the schedule_cron value
+      const scheduleCron = formData.schedule === 'custom'
+        ? formData.customCron
+        : formData.schedule;
+
+      // Validate custom cron if selected
+      if (formData.schedule === 'custom' && !formData.customCron.trim()) {
+        showToast('请输入自定义Cron表达式', 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Prepare payload for API
+      const payload = {
+        name: formData.name,
+        description: formData.description || undefined,
+        schedule_cron: scheduleCron,
+        models: formData.selectedModels,
+        keywords: formData.keywords,
+      };
+
+      // Create task
+      const response = await apiClient.post('/tasks', payload);
+      const createdTask = response.data;
+
+      showToast('任务创建成功', 'success');
+
+      // If save_and_run, trigger the task immediately
+      if (action === 'save_and_run' && createdTask.id) {
+        try {
+          await apiClient.post(`/tasks/${createdTask.id}/trigger`);
+          showToast('任务已成功触发', 'success');
+        } catch (triggerError) {
+          const errorMessage = handleApiError(triggerError);
+          showToast(`任务创建成功但触发失败: ${errorMessage}`, 'error');
+        }
+      }
+
+      // Wait a bit to show the success message, then redirect
+      setTimeout(() => {
+        router.push('/tasks');
+      }, 1000);
+
     } catch (error) {
-      console.error('Failed to save task:', error);
+      const errorMessage = handleApiError(error);
+      showToast(`创建任务失败: ${errorMessage}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const isFormValid = () => {
-    return formData.name.trim() && 
-           formData.selectedModels.length > 0 && 
+    return formData.name.trim() &&
+           formData.selectedModels.length > 0 &&
            formData.keywords.length > 0;
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border ${
+            toast.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-900'
+              : toast.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-900'
+              : 'bg-blue-50 border-blue-200 text-blue-900'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
       {/* 页面标题 */}
       <div className="flex items-center space-x-4">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="sm"
           onClick={() => router.back()}
+          disabled={loading}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           返回
@@ -168,9 +241,10 @@ export default function CreateTaskPage() {
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="输入任务名称"
+                  disabled={loading}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="description">任务描述</Label>
                 <Textarea
@@ -179,6 +253,7 @@ export default function CreateTaskPage() {
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder="描述此任务的目的和范围"
                   rows={3}
+                  disabled={loading}
                 />
               </div>
 
@@ -189,6 +264,7 @@ export default function CreateTaskPage() {
                   value={formData.targetBrand}
                   onChange={(e) => handleInputChange('targetBrand', e.target.value)}
                   placeholder="输入要监控的品牌名称"
+                  disabled={loading}
                 />
               </div>
             </CardContent>
@@ -205,6 +281,7 @@ export default function CreateTaskPage() {
                 <Select
                   value={formData.schedule}
                   onValueChange={(value) => handleInputChange('schedule', value)}
+                  disabled={loading}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -227,6 +304,7 @@ export default function CreateTaskPage() {
                     value={formData.customCron}
                     onChange={(e) => handleInputChange('customCron', e.target.value)}
                     placeholder="0 */6 * * *"
+                    disabled={loading}
                   />
                   <p className="text-xs text-gray-500">
                     格式: 分 时 日 月 周 (例如: 0 */6 * * * 表示每6小时执行一次)
@@ -250,8 +328,8 @@ export default function CreateTaskPage() {
                       formData.selectedModels.includes(model.id)
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => toggleModel(model.id)}
+                    } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={() => !loading && toggleModel(model.id)}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -285,8 +363,9 @@ export default function CreateTaskPage() {
                     onChange={(e) => setNewKeyword(e.target.value)}
                     placeholder="输入关键词"
                     onKeyPress={(e) => e.key === 'Enter' && addKeyword()}
+                    disabled={loading}
                   />
-                  <Button onClick={addKeyword} size="sm">
+                  <Button onClick={addKeyword} size="sm" disabled={loading}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -294,9 +373,9 @@ export default function CreateTaskPage() {
                   {formData.keywords.map((keyword) => (
                     <Badge key={keyword} variant="secondary" className="flex items-center gap-1">
                       {keyword}
-                      <X 
-                        className="h-3 w-3 cursor-pointer" 
-                        onClick={() => removeKeyword(keyword)}
+                      <X
+                        className="h-3 w-3 cursor-pointer"
+                        onClick={() => !loading && removeKeyword(keyword)}
                       />
                     </Badge>
                   ))}
@@ -313,8 +392,9 @@ export default function CreateTaskPage() {
                     onChange={(e) => setNewPositioningKeyword(e.target.value)}
                     placeholder="输入定位关键词"
                     onKeyPress={(e) => e.key === 'Enter' && addPositioningKeyword()}
+                    disabled={loading}
                   />
-                  <Button onClick={addPositioningKeyword} size="sm">
+                  <Button onClick={addPositioningKeyword} size="sm" disabled={loading}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -322,9 +402,9 @@ export default function CreateTaskPage() {
                   {formData.positioningKeywords.map((keyword) => (
                     <Badge key={keyword} variant="outline" className="flex items-center gap-1">
                       {keyword}
-                      <X 
-                        className="h-3 w-3 cursor-pointer" 
-                        onClick={() => removePositioningKeyword(keyword)}
+                      <X
+                        className="h-3 w-3 cursor-pointer"
+                        onClick={() => !loading && removePositioningKeyword(keyword)}
                       />
                     </Badge>
                   ))}
@@ -345,28 +425,37 @@ export default function CreateTaskPage() {
               <CardTitle>操作</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button 
+              <Button
                 onClick={() => handleSubmit('save_and_run')}
                 disabled={!isFormValid() || loading}
                 className="w-full"
               >
-                <Play className="h-4 w-4 mr-2" />
+                {loading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
                 保存并立即运行
               </Button>
-              
-              <Button 
+
+              <Button
                 variant="outline"
                 onClick={() => handleSubmit('save')}
                 disabled={!isFormValid() || loading}
                 className="w-full"
               >
-                <Save className="h-4 w-4 mr-2" />
+                {loading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 仅保存
               </Button>
-              
-              <Button 
+
+              <Button
                 variant="ghost"
                 onClick={() => router.back()}
+                disabled={loading}
                 className="w-full"
               >
                 取消
@@ -387,12 +476,12 @@ export default function CreateTaskPage() {
                 <h4 className="font-medium text-gray-900">关键词选择</h4>
                 <p>选择与您品牌相关的核心关键词，系统将监控这些词汇的声量表现。</p>
               </div>
-              
+
               <div>
                 <h4 className="font-medium text-gray-900">模型选择</h4>
                 <p>不同模型有不同的成本和性能特点，建议根据预算和精度需求选择。</p>
               </div>
-              
+
               <div>
                 <h4 className="font-medium text-gray-900">执行频率</h4>
                 <p>频率越高，数据越及时，但成本也会相应增加。</p>

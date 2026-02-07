@@ -46,27 +46,36 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting GEO Monitor API...")
-    
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Database URL configured: {bool(settings.get_database_url())}")
+
     try:
         # Initialize database
+        db_url = settings.get_database_url()
+        # Log sanitized URL (hide password)
+        safe_url = db_url.split('@')[-1] if '@' in db_url else db_url[:30]
+        logger.info(f"Connecting to database: ...@{safe_url}")
         init_db()
-        logger.info("Database initialized")
-        
+        logger.info("Database initialized successfully")
+
         # Initialize Redis
         init_redis()
         logger.info("Redis initialized")
-        
+
         logger.info("GEO Monitor API started successfully")
-        
+
         yield
-        
+
+    except Exception as e:
+        logger.error(f"Failed to initialize application: {type(e).__name__}: {e}", exc_info=True)
+        raise
     finally:
         # Shutdown
         logger.info("Shutting down GEO Monitor API...")
-        
+
         close_redis()
         close_db()
-        
+
         logger.info("GEO Monitor API shut down")
 
 
@@ -110,8 +119,21 @@ setup_exception_handlers(app)
 # Health check endpoint
 @app.get("/health", tags=["Health"])
 def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "version": "1.0.0"}
+    """Health check endpoint with database connectivity test."""
+    from app.models.database import SessionLocal
+    db_ok = False
+    try:
+        db = SessionLocal()
+        db.execute(__import__('sqlalchemy').text("SELECT 1"))
+        db.close()
+        db_ok = True
+    except Exception:
+        pass
+    return {
+        "status": "healthy" if db_ok else "degraded",
+        "version": "1.0.0",
+        "database": "connected" if db_ok else "disconnected",
+    }
 
 
 # Root endpoint

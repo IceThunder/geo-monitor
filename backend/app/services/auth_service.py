@@ -157,10 +157,24 @@ class AuthService:
         self.db.add(email_verification)
         
         self.db.commit()
-        
-        # TODO: 发送验证邮件
-        # self.send_verification_email(user.email, verification_token)
-        
+
+        # Send verification email
+        from app.services.email_service import get_email_service
+        email_service = get_email_service()
+        import asyncio
+        try:
+            asyncio.create_task(
+                email_service.send_verification_email(
+                    user.email,
+                    verification_token,
+                    user.name
+                )
+            )
+        except Exception as e:
+            # Log but don't fail registration if email fails
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to send verification email: {e}")
+
         return user, tenant
     
     def login_user(self, login_data: UserLogin, user_agent: str = None, ip_address: str = None) -> Tuple[User, Tenant, str, str]:
@@ -245,10 +259,24 @@ class AuthService:
         )
         self.db.add(password_reset)
         self.db.commit()
-        
-        # TODO: 发送重置邮件
-        # self.send_password_reset_email(user.email, reset_token)
-        
+
+        # Send password reset email
+        from app.services.email_service import get_email_service
+        email_service = get_email_service()
+        import asyncio
+        try:
+            asyncio.create_task(
+                email_service.send_password_reset_email(
+                    user.email,
+                    reset_token,
+                    user.name
+                )
+            )
+        except Exception as e:
+            # Log but don't fail if email fails
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to send password reset email: {e}")
+
         return reset_token
     
     def reset_password(self, token: str, new_password: str) -> User:

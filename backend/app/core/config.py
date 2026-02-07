@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     MAX_TOKEN_PER_REQUEST: int = 4000
     MAX_COST_PER_REQUEST: float = 1.00
     
+    # SMTP / Email
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: Optional[str] = None
+    SMTP_FROM_NAME: str = "GEO Monitor"
+    FRONTEND_URL: str = "http://localhost:3000"
+
     # Webhook
     WEBHOOK_ENABLED: bool = True
     ALERT_EMAIL_ENABLED: bool = False
@@ -66,7 +75,7 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "json"
     
     # CORS (can be comma-separated string or JSON array)
-    CORS_ORIGINS: str = "http://localhost:3000,https://geo-monitor-delta.vercel.app,https://*.vercel.app"
+    CORS_ORIGINS: str = "http://localhost:3000,https://geo-monitor-delta.vercel.app"
     
     @property
     def CORS_ORIGINS_LIST(self) -> list[str]:
@@ -75,39 +84,48 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in self.CORS_ORIGINS.split(',') if origin.strip()]
         return list(self.CORS_ORIGINS)
     
+    # Supabase region (override via env var if your project is not in ap-northeast-1)
+    SUPABASE_REGION: str = "aws-0-ap-northeast-1"
+
     def get_database_url(self) -> str:
-        """Get database URL from environment or construct from SUPABASE_URL.
-        
-        Uses Supabase Connection Pooler (pgbouncer) on port 6543.
+        """Get database URL from environment or construct from Supabase config.
+
+        Priority:
+        1. DATABASE_URL env var (direct connection string)
+        2. SUPABASE_PROJECT_REF + SUPABASE_DB_PASSWORD (pooler URL)
+        3. SUPABASE_URL + SUPABASE_DB_PASSWORD (extract project ref)
+        4. SQLite fallback for local dev
         """
         if self.DATABASE_URL:
             return self.DATABASE_URL
-        
+
         # Use pooler URL format from Supabase
         if self.SUPABASE_PROJECT_REF and self.SUPABASE_DB_PASSWORD:
-            # Format: postgres://postgres.{project_ref}:{password}@{region}.pooler.supabase.com:6543/postgres
-            region = "aws-1-ap-northeast-1"
             return (
                 f"postgresql://postgres.{self.SUPABASE_PROJECT_REF}:{self.SUPABASE_DB_PASSWORD}"
-                f"@{region}.pooler.supabase.com:6543/postgres"
+                f"@{self.SUPABASE_REGION}.pooler.supabase.com:6543/postgres"
             )
-        
+
         # Fallback: try to extract from SUPABASE_URL
         if self.SUPABASE_URL and self.SUPABASE_DB_PASSWORD:
             from urllib.parse import urlparse
-            
+
             parsed = urlparse(self.SUPABASE_URL)
             hostname = parsed.hostname
-            
+
             if hostname:
                 project_ref = hostname.replace('.supabase.co', '')
-                region = "aws-1-ap-northeast-1"
                 return (
                     f"postgresql://postgres.{project_ref}:{self.SUPABASE_DB_PASSWORD}"
-                    f"@{region}.pooler.supabase.com:6543/postgres"
+                    f"@{self.SUPABASE_REGION}.pooler.supabase.com:6543/postgres"
                 )
-        
-        return ""
+
+        # Local dev fallback
+        import logging
+        logging.getLogger(__name__).warning(
+            "No DATABASE_URL or SUPABASE config found, falling back to SQLite"
+        )
+        return "sqlite:///./geo_monitor_dev.db"
     
     def get_pool_config(self) -> dict:
         """Get connection pool configuration."""

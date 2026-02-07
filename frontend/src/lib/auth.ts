@@ -2,6 +2,8 @@
  * 认证相关的工具函数和类型定义
  */
 
+import apiClient from '@/lib/api/client';
+
 export interface User {
   id: string;
   email: string;
@@ -141,20 +143,13 @@ export async function refreshAccessToken(): Promise<boolean> {
   if (!refreshToken) return false;
 
   try {
-    const response = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        refresh_token: refreshToken,
-      }),
+    const response = await apiClient.post('/auth/refresh', {
+      refresh_token: refreshToken,
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
+    if (response.data) {
+      localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('refresh_token', response.data.refresh_token);
       return true;
     }
   } catch (error) {
@@ -169,17 +164,11 @@ export async function refreshAccessToken(): Promise<boolean> {
  */
 export async function logout(): Promise<void> {
   const refreshToken = getRefreshToken();
-  
+
   if (refreshToken) {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          refresh_token: refreshToken,
-        }),
+      await apiClient.post('/auth/logout', {
+        refresh_token: refreshToken,
       });
     } catch (error) {
       console.error('Logout request failed:', error);

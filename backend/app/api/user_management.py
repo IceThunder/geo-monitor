@@ -128,10 +128,29 @@ async def invite_user(
     
     db.add(invitation)
     db.commit()
-    
-    # TODO: 发送邀请邮件
-    # send_invitation_email(invite_data.email, invitation.token)
-    
+
+    # Send invitation email
+    from app.services.email_service import get_email_service
+    email_service = get_email_service()
+    import asyncio
+    try:
+        # Get tenant name
+        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        tenant_name = tenant.name if tenant else "the team"
+
+        asyncio.create_task(
+            email_service.send_invitation_email(
+                invite_data.email,
+                user.name,
+                tenant_name,
+                invite_data.role
+            )
+        )
+    except Exception as e:
+        # Log but don't fail if email fails
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to send invitation email: {e}")
+
     return InviteResponse(
         message="邀请发送成功",
         invite_id=invitation.id

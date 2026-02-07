@@ -115,7 +115,7 @@ async def login(
             refresh_token=refresh_token,
             token_type="bearer",
             expires_in=1800,  # 30分钟
-            user=UserResponse.from_orm(user),
+            user=UserResponse.model_validate(user),
             tenants=tenants
         )
     except ValueError as e:
@@ -167,7 +167,7 @@ async def update_user_profile(
     db.commit()
     db.refresh(user)
     
-    return UserResponse.from_orm(user)
+    return UserResponse.model_validate(user)
 
 
 @router.put("/me/password", response_model=MessageResponse)
@@ -226,7 +226,7 @@ async def verify_email(
             refresh_token=refresh_token,
             token_type="bearer",
             expires_in=1800,
-            user=UserResponse.from_orm(user),
+            user=UserResponse.model_validate(user),
             tenants=[TenantResponse(
                 id=user_tenant.tenant.id,
                 name=user_tenant.tenant.name,
