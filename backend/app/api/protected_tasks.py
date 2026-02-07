@@ -76,10 +76,9 @@ async def list_tasks(
 
 
 @router.post("", response_model=TaskResponse)
-@require_minimum_role("member")
 async def create_task(
     task_data: TaskCreate,
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("member")),
     db: Session = Depends(get_db),
 ):
     """创建新的监控任务"""
@@ -152,11 +151,10 @@ async def get_task(
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
-@require_minimum_role("member")
 async def update_task(
     task_id: str,
     task_data: TaskUpdate,
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("member")),
     db: Session = Depends(get_db),
 ):
     """更新指定任务"""
@@ -220,10 +218,9 @@ async def update_task(
 
 
 @router.delete("/{task_id}")
-@require_minimum_role("admin")
 async def delete_task(
     task_id: str,
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("admin")),
     db: Session = Depends(get_db),
 ):
     """删除指定任务"""
@@ -249,10 +246,9 @@ async def delete_task(
 
 
 @router.post("/{task_id}/trigger", response_model=TaskTriggerResponse)
-@require_minimum_role("member")
 async def trigger_task(
     task_id: str,
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("member")),
     db: Session = Depends(get_db),
 ):
     """手动触发任务执行"""

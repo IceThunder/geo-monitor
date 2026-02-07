@@ -82,88 +82,76 @@ class AuthMiddleware:
             return None
     
     def require_roles(self, *allowed_roles: str):
-        """要求特定角色的装饰器"""
-        def decorator(func):
-            async def wrapper(
-                current_user_data: Tuple[User, UserTenant] = Depends(self.get_current_user),
-                *args, **kwargs
-            ):
-                user, user_tenant = current_user_data
-                
-                if user_tenant.role not in allowed_roles:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"需要以下角色之一: {', '.join(allowed_roles)}"
-                    )
-                
-                return await func(current_user_data, *args, **kwargs)
-            return wrapper
-        return decorator
+        """要求特定角色的依赖工厂"""
+        async def dependency(
+            current_user_data: Tuple[User, UserTenant] = Depends(self.get_current_user),
+        ) -> Tuple[User, UserTenant]:
+            user, user_tenant = current_user_data
+
+            if user_tenant.role not in allowed_roles:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"需要以下角色之一: {', '.join(allowed_roles)}"
+                )
+
+            return current_user_data
+        return dependency
     
     def require_permissions(self, *required_permissions: str):
-        """要求特定权限的装饰器"""
-        def decorator(func):
-            async def wrapper(
-                current_user_data: Tuple[User, UserTenant] = Depends(self.get_current_user),
-                db: Session = Depends(get_db),
-                *args, **kwargs
-            ):
-                user, user_tenant = current_user_data
-                
-                # 检查用户是否有所需权限
-                has_permission = self._check_user_permissions(
-                    db, user_tenant, required_permissions
+        """要求特定权限的依赖工厂"""
+        async def dependency(
+            current_user_data: Tuple[User, UserTenant] = Depends(self.get_current_user),
+            db: Session = Depends(get_db),
+        ) -> Tuple[User, UserTenant]:
+            user, user_tenant = current_user_data
+
+            # 检查用户是否有所需权限
+            has_permission = self._check_user_permissions(
+                db, user_tenant, required_permissions
+            )
+
+            if not has_permission:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"缺少必要权限: {', '.join(required_permissions)}"
                 )
-                
-                if not has_permission:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"缺少必要权限: {', '.join(required_permissions)}"
-                    )
-                
-                return await func(current_user_data, db, *args, **kwargs)
-            return wrapper
-        return decorator
+
+            return current_user_data
+        return dependency
     
     def require_verified_email(self):
-        """要求邮箱已验证的装饰器"""
-        def decorator(func):
-            async def wrapper(
-                current_user_data: Tuple[User, UserTenant] = Depends(self.get_current_user),
-                *args, **kwargs
-            ):
-                user, user_tenant = current_user_data
-                
-                if not user.is_verified:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="请先验证您的邮箱地址"
-                    )
-                
-                return await func(current_user_data, *args, **kwargs)
-            return wrapper
-        return decorator
+        """要求邮箱已验证的依赖工厂"""
+        async def dependency(
+            current_user_data: Tuple[User, UserTenant] = Depends(self.get_current_user),
+        ) -> Tuple[User, UserTenant]:
+            user, user_tenant = current_user_data
+
+            if not user.is_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="请先验证您的邮箱地址"
+                )
+
+            return current_user_data
+        return dependency
     
     def require_active_tenant(self):
-        """要求租户状态为活跃的装饰器"""
-        def decorator(func):
-            async def wrapper(
-                current_user_data: Tuple[User, UserTenant] = Depends(self.get_current_user),
-                db: Session = Depends(get_db),
-                *args, **kwargs
-            ):
-                user, user_tenant = current_user_data
-                
-                tenant = db.query(Tenant).filter(Tenant.id == user_tenant.tenant_id).first()
-                if not tenant or tenant.status != 'active':
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="租户账户已被暂停或取消"
-                    )
-                
-                return await func(current_user_data, db, *args, **kwargs)
-            return wrapper
-        return decorator
+        """要求租户状态为活跃的依赖工厂"""
+        async def dependency(
+            current_user_data: Tuple[User, UserTenant] = Depends(self.get_current_user),
+            db: Session = Depends(get_db),
+        ) -> Tuple[User, UserTenant]:
+            user, user_tenant = current_user_data
+
+            tenant = db.query(Tenant).filter(Tenant.id == user_tenant.tenant_id).first()
+            if not tenant or tenant.status != 'active':
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="租户账户已被暂停或取消"
+                )
+
+            return current_user_data
+        return dependency
     
     def _check_user_permissions(
         self, 
@@ -206,22 +194,22 @@ async def get_optional_user(
 
 
 def require_roles(*roles: str):
-    """要求特定角色的便捷装饰器"""
+    """要求特定角色的依赖工厂，用法: Depends(require_roles("admin", "owner"))"""
     return auth_middleware.require_roles(*roles)
 
 
 def require_permissions(*permissions: str):
-    """要求特定权限的便捷装饰器"""
+    """要求特定权限的依赖工厂，用法: Depends(require_permissions("write"))"""
     return auth_middleware.require_permissions(*permissions)
 
 
 def require_verified_email():
-    """要求邮箱已验证的便捷装饰器"""
+    """要求邮箱已验证的依赖工厂，用法: Depends(require_verified_email())"""
     return auth_middleware.require_verified_email()
 
 
 def require_active_tenant():
-    """要求租户状态为活跃的便捷装饰器"""
+    """要求租户状态为活跃的依赖工厂，用法: Depends(require_active_tenant())"""
     return auth_middleware.require_active_tenant()
 
 
@@ -242,20 +230,17 @@ def has_higher_or_equal_role(user_role: str, required_role: str) -> bool:
 
 
 def require_minimum_role(min_role: str):
-    """要求最低角色级别的装饰器"""
-    def decorator(func):
-        async def wrapper(
-            current_user_data: Tuple[User, UserTenant] = Depends(get_current_user),
-            *args, **kwargs
-        ):
-            user, user_tenant = current_user_data
-            
-            if not has_higher_or_equal_role(user_tenant.role, min_role):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"需要至少 {min_role} 角色权限"
-                )
-            
-            return await func(current_user_data, *args, **kwargs)
-        return wrapper
-    return decorator
+    """要求最低角色级别的依赖工厂，用法: Depends(require_minimum_role("member"))"""
+    async def dependency(
+        current_user_data: Tuple[User, UserTenant] = Depends(get_current_user),
+    ) -> Tuple[User, UserTenant]:
+        user, user_tenant = current_user_data
+
+        if not has_higher_or_equal_role(user_tenant.role, min_role):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"需要至少 {min_role} 角色权限"
+            )
+
+        return current_user_data
+    return dependency

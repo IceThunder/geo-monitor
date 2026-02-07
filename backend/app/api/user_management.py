@@ -50,9 +50,8 @@ async def get_my_tenants(
 
 
 @router.get("/tenant/members", response_model=List[dict])
-@require_minimum_role("admin")
 async def get_tenant_members(
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("admin")),
     db: Session = Depends(get_db),
 ):
     """获取当前租户的所有成员"""
@@ -66,10 +65,9 @@ async def get_tenant_members(
 
 
 @router.post("/tenant/invite", response_model=InviteResponse)
-@require_minimum_role("admin")
 async def invite_user(
     invite_data: UserInvite,
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("admin")),
     db: Session = Depends(get_db),
 ):
     """邀请用户加入租户"""
@@ -158,11 +156,10 @@ async def invite_user(
 
 
 @router.put("/tenant/member/{user_id}/role", response_model=MessageResponse)
-@require_minimum_role("admin")
 async def update_member_role(
     user_id: str,
     new_role: str,
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("admin")),
     db: Session = Depends(get_db),
 ):
     """更新租户成员角色"""
@@ -210,10 +207,9 @@ async def update_member_role(
 
 
 @router.delete("/tenant/member/{user_id}", response_model=MessageResponse)
-@require_minimum_role("admin")
 async def remove_member(
     user_id: str,
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("admin")),
     db: Session = Depends(get_db),
 ):
     """从租户中移除成员"""
@@ -265,9 +261,8 @@ async def remove_member(
 
 
 @router.get("/tenant/invitations")
-@require_minimum_role("admin")
 async def get_pending_invitations(
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("admin")),
     db: Session = Depends(get_db),
 ):
     """获取租户的待处理邀请"""
@@ -294,10 +289,9 @@ async def get_pending_invitations(
 
 
 @router.delete("/tenant/invitation/{invitation_id}", response_model=MessageResponse)
-@require_minimum_role("admin")
 async def cancel_invitation(
     invitation_id: str,
-    current_user_data: tuple[User, UserTenant] = Depends(get_current_user),
+    current_user_data: tuple[User, UserTenant] = Depends(require_minimum_role("admin")),
     db: Session = Depends(get_db),
 ):
     """取消邀请"""
