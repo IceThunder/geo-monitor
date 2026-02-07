@@ -1,8 +1,10 @@
 """
 API routes package initialization.
+
+Note: Legacy routers (tasks, auth) have been superseded by protected_* routers
+registered directly in main.py. Only alerts, metrics (old), and config are
+still loaded here for backwards compatibility.
 """
-from app.api.auth import router as auth_router
-from app.api.tasks import router as tasks_router
 from app.api.metrics import router as metrics_router
 from app.api.alerts import router as alerts_router
 from app.api.config import router as config_router
@@ -16,9 +18,7 @@ except ImportError:
     WEBSOCKET_AVAILABLE = False
 
 __all__ = [
-    "auth_router",
-    "tasks_router",
-    "metrics_router", 
+    "metrics_router",
     "alerts_router",
     "config_router",
 ]
