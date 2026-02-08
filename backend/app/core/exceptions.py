@@ -23,9 +23,12 @@ class AppException(Exception):
 
 class NotFoundException(AppException):
     """Resource not found exception."""
-    
-    def __init__(self, resource: str, resource_id: Union[str, int]):
-        message = f"{resource} with id '{resource_id}' not found"
+
+    def __init__(self, resource: str, resource_id: Union[str, int, None] = None):
+        if resource_id is not None:
+            message = f"{resource} with id '{resource_id}' not found"
+        else:
+            message = resource
         super().__init__(
             message=message,
             code="NOT_FOUND",

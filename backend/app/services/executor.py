@@ -218,11 +218,30 @@ class ModelExecutor:
                 
                 # Validate and parse JSON response
                 try:
-                    parsed_response = json.loads(content) if content else {}
+                    # Some models wrap JSON in markdown code blocks
+                    cleaned_content = content.strip()
+                    if cleaned_content.startswith("```"):
+                        # Remove markdown code fences
+                        lines = cleaned_content.split("\n")
+                        lines = [l for l in lines if not l.strip().startswith("```")]
+                        cleaned_content = "\n".join(lines).strip()
+
+                    parsed_response = json.loads(cleaned_content) if cleaned_content else {}
                     if not self._validate_response(parsed_response):
                         raise ValueError("Invalid response format")
                 except json.JSONDecodeError:
-                    raise ValueError("Invalid JSON response")
+                    # Try to extract JSON from mixed content
+                    import re
+                    json_match = re.search(r'\{[\s\S]*\}', content)
+                    if json_match:
+                        try:
+                            parsed_response = json.loads(json_match.group())
+                            if not self._validate_response(parsed_response):
+                                raise ValueError("Invalid response format")
+                        except (json.JSONDecodeError, ValueError):
+                            raise ValueError(f"Could not parse JSON from response: {content[:200]}")
+                    else:
+                        raise ValueError(f"No JSON found in response: {content[:200]}")
                 
                 # Calculate actual cost
                 actual_cost = self._calculate_cost(model_id, usage)
@@ -478,8 +497,13 @@ async def execute_task_run(run_id: uuid.UUID):
             # Determine API key to use
             api_key = settings.OPENROUTER_API_KEY
             if tenant_config and tenant_config.openrouter_api_key_encrypted:
-                # In production, decrypt the tenant's API key
-                api_key = tenant_config.openrouter_api_key_encrypted
+                # Decode the tenant's API key (base64 encoded)
+                import base64
+                try:
+                    api_key = base64.b64decode(tenant_config.openrouter_api_key_encrypted.encode()).decode()
+                except Exception:
+                    logger.warning(f"Failed to decode tenant API key, falling back to system key")
+                    api_key = settings.OPENROUTER_API_KEY
             
             # Update run status
             task_run.status = "running"
@@ -609,7 +633,32 @@ async def execute_task_run(run_id: uuid.UUID):
             stats = executor.session_stats
             logger.info(f"Executor stats: {stats['successful_requests']}/{stats['total_requests']} successful, "
                        f"${stats['total_cost']} total cost")
-            
+
+            # WebSocket notification: task run completed
+            try:
+                from app.services.websocket import WebSocketService
+                await WebSocketService.notify_task_status_change(
+                    tenant_id=str(task.tenant_id),
+                    task_id=str(task.id),
+                    status=task_run.status,
+                    details={
+                        "run_id": str(run_id),
+                        "successful": successful_executions,
+                        "failed": failed_executions,
+                        "total_cost": float(total_cost),
+                        "total_tokens": total_tokens,
+                    }
+                )
+            except Exception as ws_err:
+                logger.warning(f"Failed to send WebSocket notification: {ws_err}")
+
+            # Process alerts for this run
+            try:
+                from app.services.notifier import process_alerts_for_run
+                await process_alerts_for_run(str(run_id))
+            except Exception as alert_err:
+                logger.warning(f"Failed to process alerts for run {run_id}: {alert_err}")
+
         except Exception as e:
             logger.error(f"Critical error in execute_task_run for {run_id}: {e}")
             

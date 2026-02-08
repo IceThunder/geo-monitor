@@ -4,12 +4,16 @@ Alert notification service.
 import asyncio
 import json
 import httpx
+import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
 from decimal import Decimal
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.models.entities import AlertRecord, TenantConfig, MetricsSnapshot, TaskRun
+
+logger = logging.getLogger(__name__)
 
 
 async def send_webhook_notification(
@@ -133,8 +137,26 @@ async def create_and_send_alert(
                 alert_data,
             )
             
-            print(f"Webhook notification sent: success={success}, time={response_time}ms")
-        
+            logger.info(f"Webhook notification sent: success={success}, time={response_time}ms")
+
+        # Send WebSocket notification
+        try:
+            from app.services.websocket import WebSocketService
+            await WebSocketService.notify_alert(
+                tenant_id=tenant_id,
+                alert={
+                    "id": str(alert.id),
+                    "type": alert_type,
+                    "message": alert_message,
+                    "metric_name": metric_name,
+                    "metric_value": float(metric_value) if metric_value else None,
+                    "threshold_value": float(threshold_value) if threshold_value else None,
+                    "severity": "high" if alert_type in ("accuracy_low", "sov_low") else "medium",
+                }
+            )
+        except Exception as ws_err:
+            logger.warning(f"Failed to send WebSocket alert notification: {ws_err}")
+
         return alert
 
 
@@ -187,9 +209,9 @@ async def check_and_alert(
             )
             alerts.append(alert)
     
-    # Check SOV threshold
+    # Check SOV threshold (default 20%, configurable via ALERT_SOV_THRESHOLD env)
     if metrics.sov_score is not None:
-        sov_threshold = 20.0  # Configurable
+        sov_threshold = getattr(settings, 'ALERT_SOV_THRESHOLD', 20.0)
         if float(metrics.sov_score) < sov_threshold:
             alert = await create_and_send_alert(
                 tenant_id=tenant_id,

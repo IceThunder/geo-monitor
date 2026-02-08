@@ -79,8 +79,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const response = await apiClient.post('/auth/login', { email, password });
       const data = response.data;
       
-      // 保存token和用户信息
+      // 保存token和用户信息（与 auth.ts 统一 key）
       localStorage.setItem('access_token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
       localStorage.setItem('user_data', JSON.stringify(data.user));
       
       setUser(data.user);
@@ -96,7 +99,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 登出函数
   const logout = () => {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_data');
+    localStorage.removeItem('current_tenant');
     setUser(null);
     router.push('/auth/login');
   };

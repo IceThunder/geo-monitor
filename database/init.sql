@@ -24,6 +24,89 @@ CREATE TYPE alert_severity AS ENUM ('low', 'medium', 'high', 'critical');
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
+-- 3.0 User & Tenant Tables (Multi-user System)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    avatar_url VARCHAR(500),
+    is_active BOOLEAN DEFAULT true,
+    is_verified BOOLEAN DEFAULT false,
+    email_verified_at TIMESTAMPTZ,
+    last_login_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    slug VARCHAR(50) UNIQUE NOT NULL,
+    plan_type VARCHAR(20) DEFAULT 'free',
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    role VARCHAR(20) DEFAULT 'member',
+    is_primary BOOLEAN DEFAULT false,
+    permissions JSONB DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    invited_at TIMESTAMPTZ DEFAULT NOW(),
+    joined_at TIMESTAMPTZ,
+    UNIQUE(user_id, tenant_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    user_agent TEXT,
+    ip_address INET,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS email_verifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    is_used BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS password_resets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    is_used BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_invitations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL,
+    role VARCHAR(20) DEFAULT 'member',
+    token VARCHAR(255) UNIQUE NOT NULL,
+    invited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    is_accepted BOOLEAN DEFAULT false,
+    accepted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ----------------------------------------------------------------------------
 -- 3.1 Tenant Configuration Table
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS tenant_configs (
@@ -176,6 +259,17 @@ COMMENT ON COLUMN alert_records.alert_type IS '告警类型：accuracy_low, sent
 -- ============================================================================
 -- 4. Create Indexes
 -- ============================================================================
+
+-- User & tenant indexes
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_user_id ON user_tenants(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_tenant_id ON user_tenants(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token);
+CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+CREATE INDEX IF NOT EXISTS idx_user_invitations_token ON user_invitations(token);
 
 -- Tenant configs indexes
 CREATE INDEX IF NOT EXISTS idx_tenant_configs_tenant ON tenant_configs(tenant_id);
@@ -416,7 +510,7 @@ COMMENT ON TABLE alert_records IS '告警记录表 - 存储触发的告警信息
 DO $$
 BEGIN
     RAISE NOTICE 'GEO Monitor database schema created successfully!';
-    RAISE NOTICE 'Tables created: tenant_configs, monitor_tasks, task_models, task_keywords, task_runs, model_outputs, metrics_snapshot, alert_records';
+    RAISE NOTICE 'Tables created: users, tenants, user_tenants, user_sessions, email_verifications, password_resets, user_invitations, tenant_configs, monitor_tasks, task_models, task_keywords, task_runs, model_outputs, metrics_snapshot, alert_records';
     RAISE NOTICE 'RLS policies enabled for multi-tenant security';
     RAISE NOTICE 'Indexes created for optimal query performance';
 END $$;

@@ -66,9 +66,10 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "GEO Monitor"
     FRONTEND_URL: str = "http://localhost:3000"
 
-    # Webhook
+    # Webhook & Alerts
     WEBHOOK_ENABLED: bool = True
     ALERT_EMAIL_ENABLED: bool = False
+    ALERT_SOV_THRESHOLD: float = 20.0
     
     # Logging
     LOG_LEVEL: str = "INFO"

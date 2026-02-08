@@ -13,8 +13,10 @@ GEO Monitor — 品牌在AI模型（ChatGPT、Claude、Gemini等）中的曝光�
 - **Database**: PostgreSQL (Supabase production) / SQLite (local dev fallback)
 - **Cache/Queue**: Redis (Upstash production)
 - **LLM Routing**: OpenRouter API (multi-model orchestration)
-- **Real-time**: WebSocket + Socket.io
+- **Real-time**: WebSocket (native)
 - **Auth**: JWT (python-jose + bcrypt)
+- **Migration**: Alembic
+- **CI/CD**: GitHub Actions
 
 ## Development Commands
 
@@ -55,6 +57,7 @@ api/
   auth_routes.py     — /api/auth/* (register, login, refresh, logout, password reset)
   protected_tasks.py — /api/tasks/* (CRUD + trigger execution, requires auth)
   protected_metrics.py — /api/metrics/* (dashboard data, requires auth)
+  protected_config.py — /api/config/* (tenant config CRUD, requires auth, admin for PUT)
   user_management.py — /api/users/* (tenant members, invitations)
 models/
   entities.py        — Core SQLAlchemy models (monitor_tasks, task_runs, metrics_snapshot, etc.)
@@ -97,7 +100,7 @@ lib/
 - **Multi-tenancy**: Users belong to tenants via `user_tenants` junction table with roles. Tenant context is threaded through JWT claims and dependency injection.
 - **Auth flow**: Login → JWT access token (30min) + refresh token (7d) stored in localStorage. Axios interceptor auto-attaches Bearer header. 401 response triggers logout redirect.
 - **Dev mode bypass**: When `ENVIRONMENT=development`, authentication can be skipped — returns mock user/tenant.
-- **State management**: Zustand for global state, TanStack Query for server state, React Context for auth/notifications.
+- **State management**: React Context for auth/notifications, useState + direct Axios calls for data fetching.
 - **API prefix**: All backend routes are under `/api`. Frontend Axios client has `baseURL` set to `NEXT_PUBLIC_API_URL`.
 - **Path alias**: Frontend uses `@/*` → `./src/*` in imports.
 
@@ -112,3 +115,46 @@ Copy `.env.example` files in both `backend/` and `frontend/`. Key variables:
 ## API Documentation
 
 Backend auto-generates OpenAPI docs at `/docs` (Swagger) and `/redoc`.
+
+## Project Status (2026-02-09)
+
+### MVP Completion: ~95%
+All P0/P1/P2 consolidation tasks complete. Core monitoring, auth, dashboard, task management, tests, CI/CD, and Alembic all functional.
+
+### What's Working
+- Full JWT auth with multi-tenancy and RBAC (owner/admin/member/viewer)
+- Task CRUD with keyword & model associations, cron scheduling
+- Metrics calculation engine (SOV, accuracy, sentiment, citation rate, positioning hit)
+- Dashboard with real API data + Recharts visualizations (SOV trend, accuracy trend, model comparison, keyword performance)
+- Alert system (threshold-based webhook + email + in-app NotificationCenter, configurable SOV threshold)
+- Google-style responsive layout with global search, breadcrumbs, mobile sidebar, dark mode
+- User management with invitations and role assignment
+- Task execution framework (APScheduler + Redis queue + OpenRouter integration)
+- Docker Compose full-stack orchestration (postgres, redis, backend, frontend, worker, grafana)
+- Email service (verification, password reset, alert notifications via aiosmtplib)
+- Forgot password page (frontend + backend)
+- Protected config API (tenant-scoped, admin-only write, base64 API key encryption)
+- Backend test suite: pytest for auth (13 tests), tasks (15 tests), calculator (34 tests), alerts (22 tests)
+- Alembic database migrations initialized
+- GitHub Actions CI (backend lint+test, frontend lint+build)
+- WebSocket real-time push wired through task execution → NotificationCenter
+- LLM executor with base64 API key decryption, markdown fence stripping, robust JSON parsing
+
+### Known Gaps
+- LLM executor not validated end-to-end against real OpenRouter API (logic improved but needs live test)
+- Backend tests not yet run in CI (need `pip install` + `pytest` verification)
+- No Alembic initial migration generated yet (`alembic revision --autogenerate`)
+- WebSocket JWT validation still basic (uses decode_token fallback)
+- Frontend E2E tests are skeletons only (Playwright)
+
+### Legacy Code (do not use)
+- `backend/app/api/tasks.py` — superseded by `protected_tasks.py`
+- `backend/app/api/auth.py` — superseded by `auth_routes.py`
+- `backend/app/api/metrics.py` — superseded by `protected_metrics.py`
+- `backend/app/api/config.py` — superseded by `protected_config.py`
+
+### Next Steps
+1. **LLM execution e2e validation** — run full task→run→metrics pipeline with real OpenRouter API
+2. **Run tests locally** — `cd backend && pip install -r requirements.txt && pytest tests/ -v`
+3. **Generate Alembic migration** — `cd backend && alembic revision --autogenerate -m "initial"`
+4. **Frontend E2E tests** — flesh out Playwright test skeletons

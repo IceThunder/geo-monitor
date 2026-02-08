@@ -55,10 +55,11 @@ export function getRefreshToken(): string | null {
 
 /**
  * 获取当前用户信息
+ * 与 auth-provider.tsx 统一使用 'user_data' key
  */
 export function getCurrentUser(): User | null {
   if (typeof window === 'undefined') return null;
-  const userStr = localStorage.getItem('user');
+  const userStr = localStorage.getItem('user_data');
   return userStr ? JSON.parse(userStr) : null;
 }
 
@@ -85,7 +86,7 @@ export function clearAuth(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
-  localStorage.removeItem('user');
+  localStorage.removeItem('user_data');
   localStorage.removeItem('current_tenant');
 }
 

@@ -91,13 +91,27 @@ function GoogleLayoutContent({ children }: { children: React.ReactNode }) {
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return false;
+  });
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const { connect, disconnect } = useNotifications();
+
+  // Restore dark mode preference on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
 
   // Auto-connect WebSocket when the user is authenticated
   useEffect(() => {
@@ -318,7 +332,12 @@ function GoogleLayoutContent({ children }: { children: React.ReactNode }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsDark(!isDark)}
+              onClick={() => {
+                const next = !isDark;
+                setIsDark(next);
+                document.documentElement.classList.toggle('dark', next);
+                localStorage.setItem('theme', next ? 'dark' : 'light');
+              }}
             >
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>

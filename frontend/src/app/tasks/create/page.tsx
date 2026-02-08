@@ -13,7 +13,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   ArrowLeft,
@@ -52,8 +51,6 @@ interface TaskFormData {
   isActive: boolean;
   selectedModels: string[];
   keywords: string[];
-  targetBrand: string;
-  positioningKeywords: string[];
 }
 
 // Simple toast notification
@@ -66,7 +63,6 @@ export default function CreateTaskPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [newKeyword, setNewKeyword] = useState('');
-  const [newPositioningKeyword, setNewPositioningKeyword] = useState('');
   const [toast, setToast] = useState<Toast | null>(null);
 
   const [formData, setFormData] = useState<TaskFormData>({
@@ -77,8 +73,6 @@ export default function CreateTaskPage() {
     isActive: true,
     selectedModels: [],
     keywords: [],
-    targetBrand: '',
-    positioningKeywords: [],
   });
 
   // Auto-hide toast after 3 seconds
@@ -109,17 +103,6 @@ export default function CreateTaskPage() {
 
   const removeKeyword = (keyword: string) => {
     handleInputChange('keywords', formData.keywords.filter(k => k !== keyword));
-  };
-
-  const addPositioningKeyword = () => {
-    if (newPositioningKeyword.trim() && !formData.positioningKeywords.includes(newPositioningKeyword.trim())) {
-      handleInputChange('positioningKeywords', [...formData.positioningKeywords, newPositioningKeyword.trim()]);
-      setNewPositioningKeyword('');
-    }
-  };
-
-  const removePositioningKeyword = (keyword: string) => {
-    handleInputChange('positioningKeywords', formData.positioningKeywords.filter(k => k !== keyword));
   };
 
   const toggleModel = (modelId: string) => {
@@ -257,16 +240,6 @@ export default function CreateTaskPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="targetBrand">目标品牌</Label>
-                <Input
-                  id="targetBrand"
-                  value={formData.targetBrand}
-                  onChange={(e) => handleInputChange('targetBrand', e.target.value)}
-                  placeholder="输入要监控的品牌名称"
-                  disabled={loading}
-                />
-              </div>
             </CardContent>
           </Card>
 
@@ -382,37 +355,6 @@ export default function CreateTaskPage() {
                 </div>
               </div>
 
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>定位关键词 (可选)</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    value={newPositioningKeyword}
-                    onChange={(e) => setNewPositioningKeyword(e.target.value)}
-                    placeholder="输入定位关键词"
-                    onKeyPress={(e) => e.key === 'Enter' && addPositioningKeyword()}
-                    disabled={loading}
-                  />
-                  <Button onClick={addPositioningKeyword} size="sm" disabled={loading}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.positioningKeywords.map((keyword) => (
-                    <Badge key={keyword} variant="outline" className="flex items-center gap-1">
-                      {keyword}
-                      <X
-                        className="h-3 w-3 cursor-pointer"
-                        onClick={() => !loading && removePositioningKeyword(keyword)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-500">
-                  定位关键词用于计算品牌在特定领域的表现
-                </p>
-              </div>
             </CardContent>
           </Card>
         </div>

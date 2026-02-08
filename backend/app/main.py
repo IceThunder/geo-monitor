@@ -15,10 +15,11 @@ from app.core.config import settings
 from app.core.exceptions import setup_exception_handlers
 from app.models.database import init_db, close_db
 from app.services.scheduler import init_redis, close_redis
-from app.api import metrics_router, alerts_router, config_router
+from app.api import metrics_router, alerts_router
 from app.api.auth_routes import router as auth_router
 from app.api.protected_tasks import router as protected_tasks_router
 from app.api.protected_metrics import router as protected_metrics_router
+from app.api.protected_config import router as protected_config_router
 from app.api.user_management import router as user_management_router
 from app.api.search import router as search_router
 try:
@@ -148,14 +149,15 @@ def root():
     }
 
 
-# Debug endpoint to check environment
-@app.get("/debug/env", tags=["Debug"])
-def debug_env():
-    """Debug endpoint to check environment variables."""
-    return {
-        "ENVIRONMENT": settings.ENVIRONMENT,
-        "DEBUG": settings.DEBUG,
-    }
+# Debug endpoint to check environment (only available in development)
+if settings.ENVIRONMENT == "development":
+    @app.get("/debug/env", tags=["Debug"])
+    def debug_env():
+        """Debug endpoint to check environment variables (development only)."""
+        return {
+            "ENVIRONMENT": settings.ENVIRONMENT,
+            "DEBUG": settings.DEBUG,
+        }
 
 
 # Include routers
@@ -166,7 +168,7 @@ app.include_router(user_management_router, prefix="/api", tags=["user-management
 app.include_router(search_router, prefix="/api", tags=["search"])
 app.include_router(metrics_router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(alerts_router, prefix="/api/alerts", tags=["alerts"])
-app.include_router(config_router, prefix="/api/config", tags=["config"])
+app.include_router(protected_config_router, prefix="/api/config", tags=["config"])
 
 # 条件性包含WebSocket路由
 if WEBSOCKET_AVAILABLE and websocket_router:
